@@ -24,8 +24,8 @@ const vertexShader = /* glsl */ `
   varying float vAlpha;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    // 光のにじみを含めた直径（星の半径の8倍）を画面上の大きさにする
-    gl_PointSize = clamp(size * 8.0 * uScale / -mv.z, 3.0, 256.0);
+    // 光のにじみを含めた直径（星の半径の5倍）を画面上の大きさにする
+    gl_PointSize = clamp(size * 6.0 * uScale / -mv.z, 3.0, 110.0);
     gl_Position = projectionMatrix * mv;
     vColor = color;
     vAlpha = alpha;
@@ -38,9 +38,10 @@ const fragmentShader = /* glsl */ `
   void main() {
     float d = length(gl_PointCoord - 0.5) * 2.0;
     if (d > 1.0) discard;
-    float core = smoothstep(0.18, 0.12, d);
-    float halo = exp(-d * d * 10.0) * 0.85 + exp(-d * 4.0) * 0.12;
-    vec3 col = mix(vColor, vec3(1.0), 0.65) * core + vColor * halo;
+    // 芯は小さくはっきり、にじみは弱く（星が密集しても眩しくなりすぎないように）
+    float core = smoothstep(0.30, 0.22, d);
+    float halo = exp(-d * d * 14.0) * 0.32;
+    vec3 col = mix(vColor, vec3(1.0), 0.5) * core * 0.95 + vColor * halo;
     gl_FragColor = vec4(col * vAlpha, 1.0);
   }
 `;
@@ -68,7 +69,7 @@ export function StarField({ connected }: { connected: Set<string> }) {
       col.set([c.r, c.g, c.b], i * 3);
       sz[i] = nodeRadius(node.status, node.importance);
       // まだ知らない星・つながりのない星は淡く光らせる
-      al[i] = unknown ? 0.45 : connected.has(node.id) ? 1 : 0.65;
+      al[i] = unknown ? 0.4 : connected.has(node.id) ? 0.85 : 0.55;
     });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
