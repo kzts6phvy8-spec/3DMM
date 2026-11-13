@@ -17,8 +17,21 @@ import { mergeDataset, removeStarter } from '../data/mergeDataset';
 import { newId, nowIso } from '../lib/util';
 import { parseLinkIds } from '../lib/knowledge';
 
-/** view: 通常 / move: 星を動かす / connect: 星をつなぐ */
-export type Mode = 'view' | 'move' | 'connect';
+/** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
+export type Mode = 'view' | 'connect';
+/** 宇宙の上に重ねて開く画面 */
+export type Panel = 'search' | 'list' | 'more' | null;
+/** 星の名前の表示量 */
+export type LabelDensity = 'few' | 'normal' | 'many';
+
+function loadDensity(): LabelDensity {
+  try {
+    const v = localStorage.getItem('cosmos-label-density');
+    return v === 'few' || v === 'many' ? v : 'normal';
+  } catch {
+    return 'normal';
+  }
+}
 
 export type NodeInput = Pick<
   KnowledgeNode,
@@ -41,6 +54,10 @@ interface CosmosState extends Data {
   focus: { id: string; nonce: number } | null;
   /** 星のプレビュー（false）か、星のページ全体（true）か */
   expanded: boolean;
+  panel: Panel;
+  labelDensity: LabelDensity;
+  /** 長押しで動かしている星 */
+  draggingId: string | null;
   /** 直前の削除を「元に戻す」ための控え */
   undo: { label: string; snapshot: Data; expiresAt: number } | null;
 
@@ -50,6 +67,12 @@ interface CosmosState extends Data {
   /** リンクなどで別の星へ移動する（道のりに記録し、視点も動かす） */
   navigate(id: string): void;
   goBack(): void;
+  /** 道のりの途中の星まで戻る */
+  goToTrail(index: number): void;
+  openPanel(panel: Panel): void;
+  setLabelDensity(v: LabelDensity): void;
+  /** バックアップから復元する（今のデータを置き換える。直後は元に戻せる） */
+  replaceAll(data: CosmosData): void;
   setMode(mode: Mode): void;
   focusOn(id: string): void;
   tapNode(id: string): void;
@@ -131,6 +154,9 @@ export const useCosmos = create<CosmosState>((set, get) => {
     pendingConnection: null,
     focus: null,
     expanded: false,
+    panel: null,
+    labelDensity: loadDensity(),
+    draggingId: null,
     undo: null,
 
     async init() {
@@ -200,6 +226,37 @@ export const useCosmos = create<CosmosState>((set, get) => {
       const prev = trail[trail.length - 1];
       if (!prev) return;
       set({ selectedId: prev, trail: trail.slice(0, -1), focus: { id: prev, nonce: Date.now() } });
+    },
+
+    goToTrail(index) {
+      const { trail } = get();
+      const target = trail[index];
+      if (!target) return;
+      set({ selectedId: target, trail: trail.slice(0, index), focus: { id: target, nonce: Date.now() } });
+    },
+
+    openPanel(panel) {
+      set({ panel });
+    },
+
+    setLabelDensity(v) {
+      try {
+        localStorage.setItem('cosmos-label-density', v);
+      } catch {
+        /* 保存できなくても表示は切り替える */
+      }
+      set({ labelDensity: v });
+    },
+
+    replaceAll(data) {
+      const before = snapshotOf(get());
+      set({
+        ...snapshotOf(data),
+        selectedId: null,
+        trail: [],
+        undo: { label: 'バックアップから復元しました', snapshot: before, expiresAt: Date.now() + 10000 },
+      });
+      persist();
     },
 
     setMode(mode) {

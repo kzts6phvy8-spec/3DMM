@@ -8,13 +8,13 @@ import { normalize } from '../lib/search';
 
 const splitList = (v: string) => v.split(/[,、，]/).map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
 
-export function NodeForm({ editId, onClose }: { editId: string | null; onClose: () => void }) {
+export function NodeForm({ editId, initialTitle, onClose }: { editId: string | null; initialTitle?: string; onClose: () => void }) {
   const nodes = useCosmos((s) => s.nodes);
   const { addNode, updateNode, focusOn, navigate, setExpanded } = useCosmos.getState();
   const editing = editId ? nodes.find((n) => n.id === editId) : undefined;
   const registering = editing?.status === 'unknown';
 
-  const [title, setTitle] = useState(editing?.title ?? '');
+  const [title, setTitle] = useState(editing?.title ?? initialTitle ?? '');
   const [qualifier, setQualifier] = useState(editing?.qualifier ?? '');
   const [kind, setKind] = useState<StarKind>(editing?.kind ?? 'concept');
   const [category, setCategory] = useState(editing?.category ?? '');

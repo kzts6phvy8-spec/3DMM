@@ -4,51 +4,67 @@ import { clearError, useCosmos } from '../store/useCosmos';
 import { categoryColor } from '../lib/util';
 import { searchNodes } from '../lib/search';
 import { displayName } from '../lib/knowledge';
+import { LAYOUT } from '../config/layout';
 
 export function TopBar({ onAdd }: { onAdd: () => void }) {
   const nodeCount = useCosmos((s) => s.nodes.filter((n) => n.status === 'known').length);
   const relCount = useCosmos((s) => s.relations.length);
   const unknownCount = useCosmos((s) => s.nodes.filter((n) => n.status === 'unknown').length);
-  const starterCount = useCosmos((s) => s.nodes.filter((n) => n.origin === 'starter' && n.status === 'known').length);
-  const { addStarterSet, removeStarterSet } = useCosmos.getState();
+  const openPanel = useCosmos((s) => s.openPanel);
   const [menu, setMenu] = useState(false);
   return (
     <header className="topbar">
-      <div>
+      <div className="topbar-title">
         <h1>Knowledge Cosmos</h1>
         <p className="muted">星{nodeCount}・つながり{relCount}{unknownCount > 0 && `・未知${unknownCount}`}</p>
       </div>
-      <div className="topbar-actions">
-        <button className="icon-btn" aria-label="メニュー" aria-expanded={menu} onClick={() => setMenu(!menu)}>⋯</button>
-        <button className="primary add-btn" onClick={onAdd}>＋ 追加</button>
-      </div>
-      {menu && (
-        <div className="menu" role="menu">
-          <button
-            role="menuitem"
-            onClick={() => {
-              setMenu(false);
-              const n = addStarterSet();
-              if (n === 0) window.alert('初期セットはすでに入っています');
-            }}
-          >
-            初期セットを追加
-          </button>
-          <button
-            role="menuitem"
-            className="danger"
-            disabled={starterCount === 0}
-            onClick={() => {
-              setMenu(false);
-              if (window.confirm(`初期セットの星（${starterCount}個）をまとめて削除しますか？\n自分で記述を書き足した星は残ります。\n（削除の直後は「元に戻す」ができます）`)) removeStarterSet();
-            }}
-          >
-            初期セットをまとめて削除
-          </button>
+      {LAYOUT === 'B' && (
+        <div className="topbar-actions">
+          <button className="icon-btn" aria-label="探す" onClick={() => openPanel('search')}>🔍</button>
+          <button className="icon-btn" aria-label="リスト" onClick={() => openPanel('list')}>☰</button>
+          <button className="icon-btn primary-icon" aria-label="追加" onClick={onAdd}>＋</button>
+          <button className="icon-btn" aria-label="その他" onClick={() => openPanel('more')}>⋯</button>
+        </div>
+      )}
+      {LAYOUT === 'C' && (
+        <div className="topbar-actions">
+          <button className="icon-btn" aria-label="メニュー" aria-expanded={menu} onClick={() => setMenu(!menu)}>⋯</button>
+          {menu && (
+            <div className="menu" role="menu">
+              <button role="menuitem" onClick={() => { setMenu(false); openPanel('search'); }}>🔍 探す</button>
+              <button role="menuitem" onClick={() => { setMenu(false); openPanel('list'); }}>☰ リスト</button>
+              <button role="menuitem" onClick={() => { setMenu(false); openPanel('more'); }}>⋯ その他</button>
+            </div>
+          )}
         </div>
       )}
     </header>
   );
+}
+
+/** 下部バー（A案）と右下の丸い＋（C案） */
+export function BottomNav({ onAdd }: { onAdd: () => void }) {
+  const openPanel = useCosmos((s) => s.openPanel);
+  const mode = useCosmos((s) => s.mode);
+  const sheetOpen = useCosmos((s) => s.selectedId !== null);
+  if (mode !== 'view') return null;
+  if (LAYOUT === 'A') {
+    return (
+      <nav className="bottombar" aria-label="主な操作">
+        <button onClick={() => openPanel('search')}><span aria-hidden>🔍</span>探す</button>
+        <button onClick={() => openPanel('list')}><span aria-hidden>☰</span>リスト</button>
+        <button className="bottombar-add" onClick={onAdd}><span aria-hidden>＋</span>追加</button>
+        <button onClick={() => openPanel('more')}><span aria-hidden>⋯</span>その他</button>
+      </nav>
+    );
+  }
+  if (LAYOUT === 'C') {
+    if (sheetOpen) return null; // シートが開いている間は隠す
+    return (
+      <button className="fab primary" aria-label="追加" onClick={onAdd}>＋</button>
+    );
+  }
+  return null;
 }
 
 export function ModeBanner() {
@@ -69,17 +85,14 @@ export function ModeBanner() {
   );
 
   if (mode === 'view') return null;
-  const text =
-    mode === 'move'
-      ? '移動モード：星を指でドラッグして動かせます'
-      : connectFrom
-        ? `「${displayName(connectFrom)}」とつなぐ星を、タップか検索で選んでください`
-        : 'つなぐ1つ目の星を、タップか検索で選んでください';
+  const text = connectFrom
+    ? `「${displayName(connectFrom)}」とつなぐ星を、タップか検索で選んでください`
+    : 'つなぐ1つ目の星を、タップか検索で選んでください';
   return (
     <div className={`mode-banner${mode === 'connect' ? ' is-top' : ''}`}>
       <div className="mode-banner-row">
         <span>{text}</span>
-        <button className="primary" onClick={() => setMode('view')}>{mode === 'move' ? '完了' : 'やめる'}</button>
+        <button className="primary" onClick={() => setMode('view')}>やめる</button>
       </div>
       {mode === 'connect' && (
         // 星が増えても選べるように、名前で検索できるようにする（画面外の星も選べる）

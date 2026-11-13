@@ -13,6 +13,8 @@ import { mentionEdges, parseLinkIds, type MentionEdge } from '../lib/knowledge';
 
 /** 指が少しぶれても「タップ」とみなす移動量（ピクセル） */
 const TAP_TOLERANCE = 10;
+/** 長押しとみなすまでの時間（ミリ秒） */
+const LONG_PRESS_MS = 450;
 
 /** 星の周りのぼんやりした光（ハロー）用のテクスチャ。1回だけ作って使い回す */
 let haloTexture: THREE.Texture | null = null;
@@ -52,12 +54,18 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
   const dim = !connected || unknown;
   const highlight = selected || isConnectFrom;
 
+  // 長押しで星をつかんで動かす（骨格の層 ③B）
   const drag = useRef<{ plane: THREE.Plane; offset: THREE.Vector3 } | null>(null);
+  const press = useRef<{ timer: number; x: number; y: number; ray: THREE.Ray } | null>(null);
+  const justDragged = useRef(false);
+  const draggingThis = useCosmos((s) => s.draggingId === node.id);
 
-  const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (mode !== 'move') return;
-    e.stopPropagation();
-    (e.target as unknown as Element).setPointerCapture(e.pointerId);
+  const cancelPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+    press.current = null;
+  };
+
+  const startDrag = (ray: THREE.Ray) => {
     if (controls) controls.enabled = false;
     // カメラに正面を向けた平面の上で星を動かす
     const normal = new THREE.Vector3();
@@ -65,12 +73,32 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
     const pos = new THREE.Vector3(...node.position);
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, pos);
     const hit = new THREE.Vector3();
-    e.ray.intersectPlane(plane, hit);
+    ray.intersectPlane(plane, hit);
     drag.current = { plane, offset: pos.clone().sub(hit) };
-    select(node.id);
+    useCosmos.setState({ draggingId: node.id });
+  };
+
+  const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (mode !== 'view') return;
+    (e.target as unknown as Element).setPointerCapture(e.pointerId);
+    justDragged.current = false;
+    const ray = e.ray.clone();
+    cancelPress();
+    press.current = {
+      x: e.clientX,
+      y: e.clientY,
+      ray,
+      timer: window.setTimeout(() => {
+        if (!press.current) return;
+        press.current = null;
+        startDrag(ray);
+      }, LONG_PRESS_MS),
+    };
   };
 
   const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
+    // 長押しの前に指が動いたら、視点を回す操作とみなして長押しをやめる
+    if (press.current && Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > TAP_TOLERANCE) cancelPress();
     if (!drag.current) return;
     e.stopPropagation();
     const hit = new THREE.Vector3();
@@ -80,20 +108,28 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
   };
 
   const endDrag = (e: ThreeEvent<PointerEvent>) => {
+    cancelPress();
+    (e.target as unknown as Element).releasePointerCapture?.(e.pointerId);
     if (!drag.current) return;
     e.stopPropagation();
-    (e.target as unknown as Element).releasePointerCapture?.(e.pointerId);
     drag.current = null;
+    justDragged.current = true;
     if (controls) controls.enabled = true;
+    useCosmos.setState({ draggingId: null });
     // 指を離した時点の位置を保存する
     const current = useCosmos.getState().nodes.find((n) => n.id === node.id);
     if (current) moveNode(node.id, current.position, true);
   };
 
+  useEffect(() => () => cancelPress(), []);
+
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
+    if (justDragged.current) {
+      justDragged.current = false;
+      return;
+    }
     if (e.delta > TAP_TOLERANCE) return; // 視点を回しただけならタップ扱いしない
-    if (mode === 'move') return;
     tapNode(node.id);
   };
 
@@ -121,11 +157,11 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
         <spriteMaterial map={getHaloTexture()} color={color} transparent opacity={dim ? 0.15 : highlight ? 0.6 : 0.35}
           depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
       </sprite>
-      {highlight && (
-        <Billboard>
+      {(highlight || draggingThis) && (
+        <Billboard scale={draggingThis ? 1.4 : 1}>
           <mesh>
             <ringGeometry args={[r * 1.35, r * 1.5, 48]} />
-            <meshBasicMaterial color={isConnectFrom ? '#8dffb0' : '#ffffff'} transparent opacity={0.8} side={THREE.DoubleSide} toneMapped={false} />
+            <meshBasicMaterial color={isConnectFrom || draggingThis ? '#8dffb0' : '#ffffff'} transparent opacity={0.8} side={THREE.DoubleSide} toneMapped={false} />
           </mesh>
         </Billboard>
       )}
@@ -294,7 +330,9 @@ function LabelProjector() {
   const widths = useMemo(() => new Map<string, { text: string; w: number }>(), []);
 
   useFrame(({ camera, size }) => {
-    const { nodes } = useCosmos.getState();
+    const { nodes, labelDensity } = useCosmos.getState();
+    // 名前の表示量の設定（少なめ／普通／多め）
+    const densityBonus = labelDensity === 'few' ? -10 : labelDensity === 'many' ? 12 : 0;
     type Cand = { el: HTMLDivElement; x: number; y: number; w: number; opacity: number; priority: number };
     const cands: Cand[] = [];
     for (const n of nodes) {
@@ -309,7 +347,7 @@ function LabelProjector() {
       let opacity: number;
       if (near.has(n.id)) opacity = 1;
       else if (unknown) opacity = Math.max(0, Math.min(0.8, (11 - dist) / 3));
-      else opacity = Math.max(0, Math.min(1, (22 + n.importance * 6 - dist) / 4));
+      else opacity = Math.max(0, Math.min(1, (22 + densityBonus + n.importance * 6 - dist) / 4));
       if (v.z > 1 || v.z < -1 || opacity <= 0.02) {
         el.style.visibility = 'hidden';
         continue;

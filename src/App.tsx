@@ -6,7 +6,9 @@ import { NodeForm } from './components/NodeForm';
 import { RelationForm } from './components/RelationForm';
 import { StatementForm } from './components/StatementForm';
 import { LabelLayer } from './components/LabelLayer';
-import { ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
+import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
+import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
+import { LAYOUT } from './config/layout';
 
 function webglAvailable(): boolean {
   try {
@@ -20,7 +22,8 @@ function webglAvailable(): boolean {
 export default function App() {
   const loaded = useCosmos((s) => s.loaded);
   const pending = useCosmos((s) => s.pendingConnection);
-  const [form, setForm] = useState<{ editId: string | null } | null>(null);
+  const [form, setForm] = useState<{ editId: string | null; title?: string } | null>(null);
+  const panel = useCosmos((s) => s.panel);
   const [stForm, setStForm] = useState<{ starId: string; statementId: string | null } | null>(null);
   const [has3d] = useState(webglAvailable);
 
@@ -31,7 +34,7 @@ export default function App() {
   if (!loaded) return <div className="loading">宇宙を読み込み中…</div>;
 
   return (
-    <div className="app">
+    <div className={`app layout-${LAYOUT.toLowerCase()}`}>
       {has3d ? (
         <SceneErrorBoundary fallback={<NodeList />}>
           <CosmosScene />
@@ -42,12 +45,23 @@ export default function App() {
       )}
       <TopBar onAdd={() => setForm({ editId: null })} />
       <ModeBanner />
+      <BottomNav onAdd={() => setForm({ editId: null })} />
       <NodeSheet onEdit={(id) => setForm({ editId: id })} onEditStatement={(starId, statementId) => setStForm({ starId, statementId })} />
-      {form && <NodeForm key={form.editId ?? 'new'} editId={form.editId} onClose={() => setForm(null)} />}
+      {form && <NodeForm key={form.editId ?? `new-${form.title ?? ''}`} editId={form.editId} initialTitle={form.title} onClose={() => setForm(null)} />}
       {stForm && (
         <StatementForm key={stForm.statementId ?? `new-${stForm.starId}`} starId={stForm.starId} statementId={stForm.statementId} onClose={() => setStForm(null)} />
       )}
       {pending && <RelationForm key={`${pending.sourceId}-${pending.targetId}`} />}
+      {panel === 'search' && (
+        <SearchPanel
+          onCreate={(title) => {
+            useCosmos.getState().openPanel(null);
+            setForm({ editId: null, title });
+          }}
+        />
+      )}
+      {panel === 'list' && <ListPanel />}
+      {panel === 'more' && <MorePanel />}
       <ErrorToast />
       <UndoToast />
     </div>

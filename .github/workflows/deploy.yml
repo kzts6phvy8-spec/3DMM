@@ -1,4 +1,5 @@
-# main ブランチに変更が入るたびに、アプリを GitHub Pages に公開する
+# main ブランチに変更が入るたびに、アプリを GitHub Pages に公開する。
+# 試しブランチ（try/layout-a・b・c）があれば、それぞれ /try/a/ などの別のURLにも公開する。
 name: Deploy to GitHub Pages
 
 on:
@@ -20,12 +21,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 試しブランチも取ってくる
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Build trial branches
+        run: |
+          for v in a b c; do
+            b="try/layout-$v"
+            if git show-ref --verify --quiet "refs/remotes/origin/$b"; then
+              echo "== $b を /try/$v/ に組み立てる"
+              git worktree add "../wt-$v" "origin/$b"
+              (cd "../wt-$v" && npm ci && npm run build)
+              mkdir -p "dist/try/$v"
+              cp -r "../wt-$v/dist/." "dist/try/$v/"
+            fi
+          done
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
