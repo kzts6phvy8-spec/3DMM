@@ -4,6 +4,7 @@ import { buildDataset } from './data/buildDataset';
 /**
  * 初回起動時のサンプル（5個）。
  * AIが用意した内容なので、状態は最高でも「出典あり」。確認済みにはしていない。
+ * 出典のWikipedia記事は、実在することを確認済み（2026-11-13）。内容の一致は利用者が確認する。
  */
 export function createSampleData(): CosmosData {
   return buildDataset({
@@ -14,6 +15,7 @@ export function createSampleData(): CosmosData {
       { key: 'wp-plato', type: 'web', title: 'Wikipedia：プラトン', url: 'https://ja.wikipedia.org/wiki/プラトン' },
       { key: 'wp-ignorance', type: 'web', title: 'Wikipedia：無知の知', url: 'https://ja.wikipedia.org/wiki/無知の知' },
       { key: 'wp-dialectic', type: 'web', title: 'Wikipedia：問答法', url: 'https://ja.wikipedia.org/wiki/問答法' },
+      { key: 'wp-greek', type: 'web', title: 'Wikipedia：ギリシア哲学', url: 'https://ja.wikipedia.org/wiki/ギリシア哲学' },
     ],
     stars: [
       {
@@ -54,7 +56,7 @@ export function createSampleData(): CosmosData {
         key: 'greek', title: '古代ギリシャ哲学', aliases: ['古代ギリシア哲学'], kind: 'concept', category: '歴史',
         summary: '古代ギリシャで展開された哲学の総称。', importance: 4, position: [1.5, -3, 2],
         statements: [
-          { text: '[[ソクラテス]]、[[プラトン]]、[[アリストテレス]]らが代表的な哲学者として挙げられる。' },
+          { text: '[[ソクラテス]]、[[プラトン]]、[[アリストテレス]]らが代表的な哲学者として挙げられる。', sources: ['wp-greek'] },
         ],
       },
     ],
