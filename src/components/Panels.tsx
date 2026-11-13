@@ -251,8 +251,9 @@ export function MorePanel() {
 
   return (
     <PanelFrame title="その他">
-      <h3>振り返り</h3>
+      <h3>あそぶ・振り返る</h3>
       <div className="more-actions">
+        <button onClick={() => openPanel('puzzle')}>🧩 今日のつながりパズル</button>
         <button onClick={() => openPanel('report')}>📅 今月の発見</button>
       </div>
 
