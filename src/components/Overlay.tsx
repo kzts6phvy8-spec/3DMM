@@ -9,13 +9,44 @@ export function TopBar({ onAdd }: { onAdd: () => void }) {
   const nodeCount = useCosmos((s) => s.nodes.filter((n) => n.status === 'known').length);
   const relCount = useCosmos((s) => s.relations.length);
   const unknownCount = useCosmos((s) => s.nodes.filter((n) => n.status === 'unknown').length);
+  const starterCount = useCosmos((s) => s.nodes.filter((n) => n.origin === 'starter' && n.status === 'known').length);
+  const { addStarterSet, removeStarterSet } = useCosmos.getState();
+  const [menu, setMenu] = useState(false);
   return (
     <header className="topbar">
       <div>
         <h1>Knowledge Cosmos</h1>
-        <p className="muted">{nodeCount}個の星・{relCount}本のつながり{unknownCount > 0 && `・まだ知らない星${unknownCount}`}</p>
+        <p className="muted">星{nodeCount}・つながり{relCount}{unknownCount > 0 && `・未知${unknownCount}`}</p>
       </div>
-      <button className="primary add-btn" onClick={onAdd}>＋ 追加</button>
+      <div className="topbar-actions">
+        <button className="icon-btn" aria-label="メニュー" aria-expanded={menu} onClick={() => setMenu(!menu)}>⋯</button>
+        <button className="primary add-btn" onClick={onAdd}>＋ 追加</button>
+      </div>
+      {menu && (
+        <div className="menu" role="menu">
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(false);
+              const n = addStarterSet();
+              if (n === 0) window.alert('初期セットはすでに入っています');
+            }}
+          >
+            初期セットを追加
+          </button>
+          <button
+            role="menuitem"
+            className="danger"
+            disabled={starterCount === 0}
+            onClick={() => {
+              setMenu(false);
+              if (window.confirm(`初期セットの星（${starterCount}個）をまとめて削除しますか？\n自分で記述を書き足した星は残ります。\n（削除の直後は「元に戻す」ができます）`)) removeStarterSet();
+            }}
+          >
+            初期セットをまとめて削除
+          </button>
+        </div>
+      )}
     </header>
   );
 }
