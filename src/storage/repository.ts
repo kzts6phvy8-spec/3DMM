@@ -7,6 +7,9 @@ export interface CosmosRepository {
   /** 保存データを読み込む。まだ何も保存されていなければ null */
   load(): Promise<CosmosData | null>;
   save(data: CosmosData): Promise<void>;
+  /** 一度だけ行う処理の記録（例：初期セットの自動追加） */
+  getFlag(name: string): Promise<boolean>;
+  setFlag(name: string): Promise<void>;
 }
 
 const store = createStore('knowledge-cosmos', 'data');
@@ -28,6 +31,12 @@ export const indexedDbRepository: CosmosRepository = {
   },
   async save(data) {
     await set(KEY_V2, data, store);
+  },
+  async getFlag(name) {
+    return (await get<boolean>(`flag:${name}`, store)) === true;
+  },
+  async setFlag(name) {
+    await set(`flag:${name}`, true, store);
   },
 };
 

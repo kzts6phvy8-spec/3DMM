@@ -134,9 +134,27 @@ export const useCosmos = create<CosmosState>((set, get) => {
     async init() {
       try {
         let data = await repo.load();
+        const STARTER_FLAG = 'starter-v1-added';
         if (!data) {
           data = createSampleData();
           await repo.save(data);
+          await repo.setFlag(STARTER_FLAG);
+          set({ ...snapshotOf(data), loaded: true });
+          return;
+        }
+        // 既存データのある端末にも、初期セットを最初の1回だけ自動で追加する。
+        // 一度入れたら（その後まとめて削除しても）二度と自動では入れない
+        if (!(await repo.getFlag(STARTER_FLAG))) {
+          const before = snapshotOf(data);
+          const { data: merged, added } = mergeDataset(before, createSampleData());
+          await repo.save({ version: 2, ...merged });
+          await repo.setFlag(STARTER_FLAG);
+          set({
+            ...merged,
+            loaded: true,
+            undo: added > 0 ? { label: `初期セット（${added}個）を追加しました`, snapshot: before, expiresAt: Date.now() + 10000 } : null,
+          });
+          return;
         }
         set({ ...snapshotOf(data), loaded: true });
       } catch (e) {
