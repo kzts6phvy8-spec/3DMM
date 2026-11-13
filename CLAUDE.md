@@ -158,6 +158,7 @@ src/
   lib/knowledge.ts        リンク・言及のつながりの決まり（画面から独立）
   lib/engagement.ts       関わり方の記録（星を開いた回数など）
   lib/report.ts           今月の発見レポートの計算
+  lib/puzzle.ts           毎日のつながりパズル（問題の決め方・最短の道のり）
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/externalSearch.ts   「調べる」ボタン用の外部検索
   storage/repository.ts   保存処理（IndexedDB）と旧形式からの移行

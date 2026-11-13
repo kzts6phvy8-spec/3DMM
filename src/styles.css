@@ -348,3 +348,19 @@ button.danger { color: var(--danger); }
 .report-chips { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .report-chips .chip { display: inline-flex; align-items: center; gap: 6px; }
 .report-note { margin-top: 16px; }
+
+/* つながりパズル */
+.puzzle-ends { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.puzzle-end { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--panel-border); border-radius: 12px; padding: 8px 12px; }
+.puzzle-end strong { overflow-wrap: anywhere; }
+.puzzle-end.is-goal { border-color: #ffe27a; }
+.puzzle-arrow { color: var(--muted); }
+.puzzle-here { border: 1px solid var(--accent); border-radius: 12px; padding: 10px 12px; margin: 12px 0 4px; }
+.puzzle-here-head { display: flex; align-items: center; gap: 8px; }
+.puzzle-here-head strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.puzzle-here p { margin: 6px 0 0; }
+.puzzle-next { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.puzzle-next .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.puzzle-result { text-align: center; }
+.puzzle-path { text-align: left; margin: 8px auto; display: inline-flex; flex-direction: column; gap: 4px; }
+.puzzle-message { white-space: pre-wrap; text-align: left; }

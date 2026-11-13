@@ -9,6 +9,7 @@ import { LabelLayer } from './components/LabelLayer';
 import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
 import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
 import { ReportPanel } from './components/ReportPanel';
+import { PuzzlePanel } from './components/PuzzlePanel';
 import { LAYOUT } from './config/layout';
 import { SelectionToStar } from './components/SelectionToStar';
 
@@ -65,6 +66,7 @@ export default function App() {
       {panel === 'list' && <ListPanel />}
       {panel === 'more' && <MorePanel />}
       {panel === 'report' && <ReportPanel />}
+      {panel === 'puzzle' && <PuzzlePanel />}
       <SelectionToStar />
       <ErrorToast />
       <UndoToast />
