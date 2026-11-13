@@ -172,7 +172,8 @@ export function NodeSheet({
   const relations = useCosmos((s) => s.relations);
   const expanded = useCosmos((s) => s.expanded);
   const trail = useCosmos((s) => s.trail);
-  const { select, setMode, focusOn, deleteNode, deleteRelation, navigate, goBack, setExpanded } = useCosmos.getState();
+  const { select, setMode, focusOn, deleteNode, deleteRelation, navigate, goBack, goToTrail, setExpanded } = useCosmos.getState();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const node = selectedId ? byId.get(selectedId) : undefined;
@@ -225,6 +226,22 @@ export function NodeSheet({
     groups.get(key)!.push(st);
   }
 
+  // たどった道のり（押すとそこまで戻れる）。長いときは最後の4つだけ見せる
+  const trailNodes = trail.map((id, i) => ({ i, n: byId.get(id) })).filter((t) => t.n);
+  const shown = trailNodes.slice(-4);
+  const breadcrumb = trailNodes.length > 0 && (
+    <nav className="breadcrumb" aria-label="たどった道のり">
+      {trailNodes.length > shown.length && <span className="muted">…</span>}
+      {shown.map(({ i, n }) => (
+        <span key={`${i}-${n!.id}`} className="crumb">
+          <button className="crumb-btn" onClick={() => goToTrail(i)}>{displayName(n!)}</button>
+          <span className="muted">›</span>
+        </span>
+      ))}
+      <span className="crumb-current">{displayName(node)}</span>
+    </nav>
+  );
+
   const header = (
     <header className="sheet-header">
       {prev && (
@@ -241,6 +258,7 @@ export function NodeSheet({
     return (
       <section className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="まだ知らない星">
         <div className="sheet-handle" />
+        {breadcrumb}
         {header}
         <div className="sheet-body">
           <p className="muted">まだ知らない星です。どこかの記述でリンクされていますが、中身はまだありません。</p>
@@ -270,6 +288,7 @@ export function NodeSheet({
   return (
     <section className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="星の詳細">
       <div className="sheet-handle" />
+      {breadcrumb}
       {header}
       <div className="sheet-sub">
         <span>{STAR_KINDS[node.kind]}</span>
@@ -297,10 +316,15 @@ export function NodeSheet({
         {expanded && <button onClick={() => setExpanded(false)}>たたむ</button>}
         <button onClick={() => focusOn(node.id)}>◎ 焦点</button>
         <button onClick={() => setMode('connect')}>⟷ つなぐ</button>
-        <button onClick={() => setMode('move')}>✥ 動かす</button>
-        <button onClick={() => onEdit(node.id)}>✎ 編集</button>
-        <button className="danger" onClick={handleDelete}>削除</button>
+        <button onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen} aria-label="その他の操作">⋯</button>
       </div>
+      {moreOpen && (
+        <div className="sheet-more">
+          <button onClick={() => { setMoreOpen(false); onEdit(node.id); }}>✎ 編集</button>
+          <button className="danger" onClick={() => { setMoreOpen(false); handleDelete(); }}>削除</button>
+          <p className="muted small">星を動かすには、宇宙で星を長押ししてそのまま動かします。</p>
+        </div>
+      )}
 
       {expanded && (
         <div className="sheet-body">
