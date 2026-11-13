@@ -201,8 +201,8 @@ function clusterLayout(stars: StarSpec[]): Vec3[] {
   for (const s of stars) counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
   const centers = new Map<string, Vec3>();
   // 星団の大きさは星の数に合わせ、星団どうしが重ならない距離に中心を並べる
-  const spreadOf = (c: string) => 3 + Math.sqrt(counts.get(c) ?? 1) * 1.15;
-  const R = 8 + Math.sqrt(stars.length) * 1.1;
+  const spreadOf = (c: string) => 4 + Math.sqrt(counts.get(c) ?? 1) * 1.8;
+  const R = 10 + Math.sqrt(stars.length) * 1.8;
   categories.forEach((c, i) => {
     // カテゴリーの中心を球面上に均等に並べる
     const y = categories.length === 1 ? 0 : 1 - (2 * i) / (categories.length - 1);
@@ -223,7 +223,7 @@ function clusterLayout(stars: StarSpec[]): Vec3[] {
     return [c[0] + Math.cos(th) * ru * rr, c[1] + u * rr * 0.8, c[2] + Math.sin(th) * ru * rr];
   });
   // 近すぎる星を少しずつ押し離す（格子に分けて、近くの星どうしだけを比べる）
-  const MIN = 2.0;
+  const MIN = 3.0;
   for (let iter = 0; iter < 30; iter++) {
     const grid = new Map<string, number[]>();
     const cell = (p: Vec3) => p.map((v) => Math.floor(v / MIN));

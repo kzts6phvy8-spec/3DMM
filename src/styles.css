@@ -328,3 +328,6 @@ button.danger { color: var(--danger); }
 .layout-a .sheet { bottom: calc(var(--bottombar-h) + var(--safe-bottom)); padding-bottom: 0; max-height: 50dvh; border-bottom: 1px solid var(--panel-border); }
 .layout-a .sheet.is-expanded { max-height: calc(88dvh - var(--bottombar-h) - var(--safe-bottom)); }
 :root { --bottombar-h: 64px; }
+
+/* 星の名前は押せる（宇宙の操作は名前以外の場所で行う） */
+.star-label { pointer-events: auto; cursor: pointer; }

@@ -173,15 +173,27 @@ export const useCosmos = create<CosmosState>((set, get) => {
         let data = await repo.load();
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
         const STARTER_FLAG = 'starter-v4-added';
+        const SPREAD_FLAG = 'layout-spread-v1';
         if (!data) {
           data = await createSampleData();
           await repo.save(data);
           await repo.setFlag(STARTER_FLAG);
+          await repo.setFlag(SPREAD_FLAG);
           set({ ...snapshotOf(data), loaded: true });
           return;
         }
         // 既存データのある端末にも、初期セットを最初の1回だけ自動で追加する。
         // 一度入れたら（その後まとめて削除しても）二度と自動では入れない
+        // 星が詰まりすぎていたので、既存の配置を1回だけ全体に広げる（並びの形はそのまま、間隔だけ1.6倍）
+        if (!(await repo.getFlag(SPREAD_FLAG)) && data.nodes.length > 1) {
+          const c = [0, 1, 2].map((k) => data!.nodes.reduce((sum, n) => sum + n.position[k], 0) / data!.nodes.length);
+          data = {
+            ...data,
+            nodes: data.nodes.map((n) => ({ ...n, position: n.position.map((v, k) => c[k] + (v - c[k]) * 1.6) as typeof n.position })),
+          };
+          await repo.save(data);
+          await repo.setFlag(SPREAD_FLAG);
+        }
         // 以前の版を入れた後に、初期セットをまとめて削除していた人には入れない
         const removedBefore = (await repo.getFlag('starter-v1-added')) && !data.nodes.some((n) => n.origin === 'starter' && n.status === 'known');
         if (removedBefore) await repo.setFlag(STARTER_FLAG);

@@ -30,7 +30,7 @@ function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; b
     return () => geometry.dispose();
   }, [geometry, dashed]);
   // 線が多いほど1本ずつを薄くする（宇宙が灰色の網のようにならないように）
-  const fade = Math.min(1, Math.max(0.25, 250 / Math.max(1, edges.length)));
+  const fade = Math.min(1, Math.max(0.15, 200 / Math.max(1, edges.length)));
   return (
     <lineSegments ref={ref} geometry={geometry}>
       {dashed ? (
@@ -86,9 +86,9 @@ function RelationLines() {
             key={r.id}
             points={[a.position, b.position]}
             color={RELATION_COLORS[r.relationType]}
-            lineWidth={active ? 3 : 1.8}
+            lineWidth={active ? 3 : 1.4}
             transparent
-            opacity={active ? 0.95 : selectedId ? 0.25 : 0.7}
+            opacity={active ? 0.95 : selectedId ? 0.2 : 0.45}
             dashed={r.explanationKind === 'opinion'}
             dashSize={0.3}
             gapSize={0.2}
@@ -149,7 +149,7 @@ function ViewShift() {
   return null;
 }
 
-const MAX_LABELS = 70;
+const MAX_LABELS = 45;
 /** ラベルの見た目を、変わったときだけ書き換える（毎フレーム全部書き換えると重いため） */
 const labelState = new WeakMap<HTMLDivElement, string>();
 function hide(el: HTMLDivElement) {
@@ -305,7 +305,8 @@ function CameraFit() {
     const dists = nodes.map((n) => Math.hypot(n.position[0] - c[0], n.position[1] - c[1], n.position[2] - c[2])).sort((a, b) => a - b);
     const r = Math.max(8, dists[Math.floor(dists.length * 0.9)] ?? 10);
     controls.target.set(c[0], c[1], c[2]);
-    camera.position.set(c[0], c[1] + r * 0.3, c[2] + r * 2.1);
+    // 最初は宇宙の一部を近くから見せる（全体はピンチで縮めると見える）
+    camera.position.set(c[0], c[1] + r * 0.15, c[2] + r * 1.15);
     controls.maxDistance = Math.max(90, r * 5);
     camera.far = Math.max(500, r * 12);
     camera.updateProjectionMatrix();
