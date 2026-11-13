@@ -1,7 +1,8 @@
 // 画面上部のバー、モード説明、エラー表示、3Dが使えないときの一覧表示
-import { Component, type ReactNode } from 'react';
+import { Component, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { clearError, useCosmos } from '../store/useCosmos';
 import { categoryColor } from '../lib/util';
+import { searchNodes } from '../lib/search';
 
 export function TopBar({ onAdd }: { onAdd: () => void }) {
   const nodeCount = useCosmos((s) => s.nodes.length);
@@ -24,34 +25,56 @@ export function ModeBanner() {
   const connectFrom = nodes.find((n) => n.id === connectFromId);
   const setMode = useCosmos((s) => s.setMode);
   const tapNode = useCosmos((s) => s.tapNode);
+  const [query, setQuery] = useState('');
+
+  // モードが変わったら検索語を空に戻す
+  useEffect(() => setQuery(''), [mode, connectFromId]);
+
+  const candidates = useMemo(
+    () => searchNodes(nodes.filter((n) => n.id !== connectFromId), query),
+    [nodes, connectFromId, query],
+  );
+
   if (mode === 'view') return null;
   const text =
     mode === 'move'
       ? '移動モード：星を指でドラッグして動かせます'
       : connectFrom
-        ? `「${connectFrom.title}」とつなぐ星をタップしてください`
-        : 'つなぐ1つ目の星をタップしてください';
+        ? `「${connectFrom.title}」とつなぐ星を、タップか検索で選んでください`
+        : 'つなぐ1つ目の星を、タップか検索で選んでください';
   return (
-    <div className="mode-banner">
+    <div className={`mode-banner${mode === 'connect' ? ' is-top' : ''}`}>
       <div className="mode-banner-row">
         <span>{text}</span>
         <button className="primary" onClick={() => setMode('view')}>{mode === 'move' ? '完了' : 'やめる'}</button>
       </div>
       {mode === 'connect' && (
-        // 画面外の星も選べるように、一覧からも選択できるようにする
-        <select
-          className="node-picker"
-          value=""
-          onChange={(e) => e.target.value && tapNode(e.target.value)}
-          aria-label="一覧から星を選ぶ"
-        >
-          <option value="">一覧から選ぶ…</option>
-          {nodes
-            .filter((n) => n.id !== connectFromId)
-            .map((n) => (
-              <option key={n.id} value={n.id}>{n.title}</option>
-            ))}
-        </select>
+        // 星が増えても選べるように、名前で検索できるようにする（画面外の星も選べる）
+        <div className="connect-search">
+          <input
+            type="search"
+            className="search-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="星を検索（名前・タグ・説明）"
+            aria-label="つなぐ星を検索"
+            enterKeyHint="search"
+          />
+          {query && (
+            <ul className="search-results">
+              {candidates.length === 0 && <li className="muted empty">見つかりませんでした</li>}
+              {candidates.map((n) => (
+                <li key={n.id}>
+                  <button onClick={() => tapNode(n.id)}>
+                    <span className="dot" style={{ background: categoryColor(n.category) }} />
+                    <span className="result-title">{n.title}</span>
+                    {n.category && <span className="muted result-cat">{n.category}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );
