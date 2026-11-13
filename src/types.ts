@@ -35,6 +35,8 @@ export interface KnowledgeNode {
   importance: number; // 1〜5。星の大きさに反映
   position: Vec3;
   origin: StarOrigin;
+  /** この星の説明に使うWikipediaの記事名（利用者が選んだもの）。なければ名前で探す */
+  wikiTitle?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
 import type { KnowledgeNode } from '../types';
-import { applyMarks, fetchWikiArticle, fetchWikiLinkTitles, type WikiArticleResult } from '../lib/wikipedia';
+import { applyMarks, cleanTitle, fetchWikiArticle, fetchWikiLinkTitles, type WikiArticleResult } from '../lib/wikipedia';
+import { WikiArticlePicker } from './WikiArticlePicker';
 import { LinkableSentence } from './LinkableSentence';
 import { useTermsFor } from './useTerms';
 import { plainText } from '../lib/knowledge';
@@ -41,10 +42,19 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
     [statements, star.id, byId],
   );
 
-  const load = async () => {
+  const [choosing, setChoosing] = useState(false);
+  const load = async (titleOverride?: string) => {
+    // 『』付きの名前（作品名など）は、同じ名前の別の記事と取り違えやすいので、まず候補から選んでもらう
+    if (!titleOverride && !star.wikiTitle && cleanTitle(star.title) !== star.title.trim()) {
+      setChoosing(true);
+      setResult({ status: 'notfound' });
+      return;
+    }
+    const t = titleOverride ?? star.wikiTitle ?? cleanTitle(star.title);
+    setChoosing(false);
     setResult('loading');
     setDone(null);
-    const [r, links] = await Promise.all([fetchWikiArticle(star.title), fetchWikiLinkTitles(star.title)]);
+    const [r, links] = await Promise.all([fetchWikiArticle(t), fetchWikiLinkTitles(t)]);
     setWikiLinks(links);
     setMarks(new Map());
     setResult(r);
@@ -54,16 +64,34 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
   if (result === 'idle') {
     return (
       <div className="wiki-suggest">
-        <button className="small-btn" onClick={load}>📖 Wikipediaから記述の候補を探す</button>
+        <button className="small-btn" onClick={() => load()}>📖 Wikipediaから記述の候補を探す</button>
         {done && <p className="more-message">{done}</p>}
       </div>
     );
   }
   if (result === 'loading') return <div className="wiki-box muted">Wikipediaの記事を読み込み中…</div>;
+  if (choosing || result.status === 'notfound') {
+    return (
+      <>
+        <WikiArticlePicker
+          star={star}
+          reason={
+            choosing && !star.wikiTitle && cleanTitle(star.title) !== star.title.trim()
+              ? '作品名などは同じ名前の別の記事があるため、候補から選んでください。'
+              : choosing
+                ? '別の記事を選べます。'
+                : `Wikipediaに「${star.wikiTitle ?? cleanTitle(star.title)}」という名前の記事はありませんでした。`
+          }
+          onPicked={(t) => load(t)}
+        />
+        <button className="small-btn" onClick={() => { setChoosing(false); setResult('idle'); }}>閉じる</button>
+      </>
+    );
+  }
   if (result.status !== 'ok') {
     return (
       <div className="wiki-box">
-        <p className="muted">{result.status === 'notfound' ? `Wikipediaに「${star.title}」の記事は見つかりませんでした。` : result.message}</p>
+        <p className="muted">{result.message}</p>
         <button className="small-btn" onClick={() => setResult('idle')}>閉じる</button>
       </div>
     );
@@ -93,6 +121,7 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
       <div className="wiki-head">
         <strong>Wikipedia「{result.title}」より</strong>
         <a className="small" href={result.url} target="_blank" rel="noreferrer">記事を開く</a>
+        <button className="small-btn ghost" onClick={() => setChoosing(true)}>別の記事を選ぶ</button>
       </div>
       <p className="muted small">追加したい文を選んでください。出典は自動で付きます（状態は「出典あり」。確認はあなたが行います）。</p>
       {terms.length > 0 && <p className="muted small">点線の言葉を押すと、その言葉も星になります（まだ知らない星として宇宙に現れます）。</p>}

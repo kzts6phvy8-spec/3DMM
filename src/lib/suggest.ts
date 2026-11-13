@@ -3,6 +3,7 @@
 import type { KnowledgeNode, Relation, Statement } from '../types';
 import { displayName, mentionEdges, parseLinkIds, plainText } from './knowledge';
 import { normalize } from './search';
+import { cleanTitle } from './wikipedia';
 
 export interface Suggestion {
   starId: string;
@@ -131,7 +132,7 @@ export async function suggestFromWikipedia(
   signal?: AbortSignal,
 ): Promise<Suggestion[]> {
   const params = new URLSearchParams({
-    action: 'query', prop: 'links', titles: target.title, plnamespace: '0', pllimit: 'max',
+    action: 'query', prop: 'links', titles: target.wikiTitle ?? cleanTitle(target.title), plnamespace: '0', pllimit: 'max',
     redirects: '1', format: 'json', origin: '*',
   });
   const res = await fetch(`https://ja.wikipedia.org/w/api.php?${params}`, { signal });
@@ -145,7 +146,7 @@ export async function suggestFromWikipedia(
   for (const n of nodes) {
     if (n.id === target.id || n.status !== 'known' || neighbors.has(n.id)) continue;
     if ([n.title, displayName(n), ...n.aliases].some((nm) => linked.has(normalize(nm)))) {
-      out.push({ starId: n.id, score: 4, reasons: [`Wikipediaの「${target.title}」の記事で触れられている`] });
+      out.push({ starId: n.id, score: 4, reasons: [`Wikipediaの「${target.wikiTitle ?? cleanTitle(target.title)}」の記事で触れられている`] });
     }
   }
   return out;

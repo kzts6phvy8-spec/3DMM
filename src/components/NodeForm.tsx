@@ -21,7 +21,8 @@ export function NodeForm({ editId, initialTitle, onClose }: { editId: string | n
   const [summary, setSummary] = useState(editing?.summary ?? '');
   const [aliases, setAliases] = useState(editing?.aliases.join(', ') ?? '');
   const [tags, setTags] = useState(editing?.tags.join(', ') ?? '');
-  const [importance, setImportance] = useState(editing && !registering ? editing.importance : 3);
+  // 重要度は画面では選ばない（利用者の判断で廃止）。星の大きさの内部値として、今の値か3を使う
+  const importance = editing && !registering ? editing.importance : 3;
 
   const categories = useMemo(() => [...new Set(nodes.map((n) => n.category).filter(Boolean))], [nodes]);
 
@@ -115,16 +116,6 @@ export function NodeForm({ editId, initialTitle, onClose }: { editId: string | n
           タグ（カンマ区切り）
           <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="例：古代ギリシャ" />
         </label>
-        <div className="field">
-          <span>重要度（星の大きさ）</span>
-          <div className="chips">
-            {[1, 2, 3, 4, 5].map((v) => (
-              <button type="button" key={v} className={v === importance ? 'chip active' : 'chip'} onClick={() => setImportance(v)}>
-                {v}
-              </button>
-            ))}
-          </div>
-        </div>
         <p className="muted small">事実や意見は、保存した後に「記述を追加」から1文ずつ書きます。</p>
         <div className="modal-actions">
           <button type="button" onClick={onClose}>キャンセル</button>

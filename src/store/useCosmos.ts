@@ -102,6 +102,8 @@ interface CosmosState extends Data {
     starId: string,
     input: { summary: string; sentences: (string | { text: string; topic: string })[]; articleTitle: string; url: string },
   ): void;
+  /** この星に使うWikipediaの記事を覚える */
+  setWikiTitle(starId: string, title: string | undefined): void;
   /** 初期セットを今のデータに追加する。追加した星の数を返す */
   addStarterSet(): number;
   /** 初期セットをまとめて削除する（自分で記述を足した星は残す）。削除した星の数を返す */
@@ -493,6 +495,10 @@ export const useCosmos = create<CosmosState>((set, get) => {
         };
       });
       set({ expanded: true });
+    },
+
+    setWikiTitle(starId, title) {
+      commit((d) => ({ nodes: d.nodes.map((n) => (n.id === starId ? { ...n, wikiTitle: title } : n)) }));
     },
 
     addStarterSet() {

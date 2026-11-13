@@ -222,3 +222,47 @@ export function applyMarks(text: string, terms: string[], marked: Set<string>, b
     })
     .join('');
 }
+
+// ---------------- 記事が見つからないときの候補探し ----------------
+
+/** 『』「」などの括弧を外す（例：『国家』→ 国家） */
+export function cleanTitle(title: string): string {
+  return title.replace(/[『』「」【】〈〉《》"“”]/g, '').trim();
+}
+
+export interface WikiCandidate {
+  title: string;
+  snippet: string;
+}
+
+/**
+ * Wikipediaの検索で、記事の候補を探す。
+ * 関係する星の名前（例：プラトン）を手がかりに加えて、同じ名前の別の記事（例：国家 (対話篇)）を見つけやすくする。
+ */
+export async function searchWikiCandidates(title: string, context: string[], signal?: AbortSignal): Promise<WikiCandidate[]> {
+  const base = cleanTitle(title);
+  const run = async (q: string) => {
+    const params = new URLSearchParams({ action: 'query', list: 'search', srsearch: q, srlimit: '8', format: 'json', origin: '*' });
+    const res = await fetch(`https://ja.wikipedia.org/w/api.php?${params}`, { signal });
+    if (!res.ok) return [];
+    const d = await res.json();
+    return ((d?.query?.search ?? []) as { title: string; snippet: string }[]).map((r) => ({
+      title: r.title,
+      snippet: r.snippet.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+    }));
+  };
+  try {
+    const first = await run(`intitle:${base} ${context.join(' ')}`.trim());
+    const rest = first.length < 3 ? await run(base) : [];
+    const seen = new Set<string>();
+    return [...first, ...rest]
+      .filter((c) => !seen.has(c.title) && seen.add(c.title))
+      .filter((c) => !context.includes(c.title))
+      // 名前を含む記事（例：国家 (対話篇)）を先に並べる
+      .sort((a, b) => Number(b.title.includes(base)) - Number(a.title.includes(base)))
+      .slice(0, 6);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    return [];
+  }
+}
