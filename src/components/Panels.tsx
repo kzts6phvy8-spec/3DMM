@@ -5,8 +5,8 @@ import { dropCheckFields } from '../storage/repository';
 import { sanitizeEngagement, type EngagementMap } from '../lib/engagement';
 import { STAR_KINDS, type CosmosData, type KnowledgeNode, type StarKind } from '../types';
 import { categoryColor } from '../lib/util';
-import { displayName, parseLinkIds, plainText } from '../lib/knowledge';
-import { normalize } from '../lib/search';
+import { displayName, parseLinkIds } from '../lib/knowledge';
+import { normalize, searchIndex } from '../lib/search';
 
 /** 星を開く（宇宙の視点を動かし、プレビューを出す） */
 export function openStar(id: string, expanded = false) {
@@ -38,18 +38,13 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
   const [category, setCategory] = useState<string | null>(null);
   const [kind, setKind] = useState<StarKind | null>(null);
 
-  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const categories = useMemo(
     () => [...new Set(nodes.filter((n) => n.status === 'known' && n.category).map((n) => n.category))].sort((a, b) => a.localeCompare(b, 'ja')),
     [nodes],
   );
 
-  // 星ごとの記述をまとめておく（検索のたびに全記述を探し直さないため）
-  const byStar = useMemo(() => {
-    const m = new Map<string, typeof statements>();
-    for (const st of statements) (m.get(st.starId) ?? m.set(st.starId, []).get(st.starId)!).push(st);
-    return m;
-  }, [statements]);
+  // 検索用の索引（データが変わらない限り使い回す。1文字打つたびに全記述を作り直さないため）
+  const index = useMemo(() => searchIndex(nodes, statements, sources), [nodes, statements, sources]);
 
   const results = useMemo(() => {
     const q = normalize(query);
@@ -59,22 +54,23 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
     for (const n of nodes) {
       if (category && n.category !== category) continue;
       if (kind && n.kind !== kind) continue;
-      const own = byStar.get(n.id) ?? [];
+      const e = index.get(n.id);
+      if (!e) continue;
       let score = q ? 0 : 1;
       let snippet = n.summary;
       if (q) {
-        const names = [displayName(n), n.title, ...n.aliases].map(normalize);
+        const names = e.names;
         if (names.some((x) => x === q)) score = 100;
         else if (names.some((x) => x.startsWith(q))) score = 80;
         else if (names.some((x) => x.includes(q))) score = 60;
-        else if (normalize(n.summary).includes(q)) score = 40;
+        else if (e.summary.includes(q)) score = 40;
         else {
-          const hit = own.find((s) => normalize(plainText(s.text, byId)).includes(q));
+          const hit = e.statements.find((s) => s.norm.includes(q));
           if (hit) {
             score = 30;
-            snippet = plainText(hit.text, byId);
+            snippet = hit.plain;
           } else {
-            const src = own.flatMap((s) => s.sourceIds).map((id) => sources.find((x) => x.id === id)).find((x) => x && normalize(x.title + x.url).includes(q));
+            const src = e.sources.find((x) => x.norm.includes(q));
             if (src) {
               score = 20;
               snippet = `出典：${src.title}`;
@@ -83,10 +79,10 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
         }
       }
       if (n.status === 'unknown') score -= 5;
-      if (score > 0) out.push({ node: n, score, snippet: snippet || (own[0] ? plainText(own[0].text, byId) : '') });
+      if (score > 0) out.push({ node: n, score, snippet: snippet || e.statements[0]?.plain || '' });
     }
     return out.sort((a, b) => b.score - a.score || a.node.title.localeCompare(b.node.title, 'ja')).slice(0, 80);
-  }, [query, category, kind, nodes, byStar, sources, byId]);
+  }, [query, category, kind, nodes, index]);
 
   const chip = <T,>(value: T, current: T | null, set: (v: T | null) => void, label: string) => (
     <button key={String(value)} className={current === value ? 'chip small active' : 'chip small'} onClick={() => set(current === value ? null : value)}>

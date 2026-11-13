@@ -16,7 +16,8 @@ export function mergeDataset(current: Data, incoming: Data): { data: Data; added
   for (const n of current.nodes) {
     for (const name of [displayName(n), n.title]) if (!byName.has(name)) byName.set(name, n);
   }
-  const existingIds = new Set(current.nodes.map((n) => n.id));
+  // IDで引ける表（星が1万個あっても、1つずつ探し直さないように）
+  const currentById = new Map(current.nodes.map((n) => [n.id, n]));
 
   const remap = new Map<string, string>(); // 追加データのID → 今のデータのID
   const upgrade = new Set<string>(); // 中身を入れる「まだ知らない星」
@@ -24,9 +25,7 @@ export function mergeDataset(current: Data, incoming: Data): { data: Data; added
   const newNodes: KnowledgeNode[] = [];
 
   for (const n of incoming.nodes) {
-    const same = existingIds.has(n.id)
-      ? current.nodes.find((x) => x.id === n.id)!
-      : byName.get(displayName(n)) ?? (n.qualifier ? undefined : byName.get(n.title));
+    const same = currentById.get(n.id) ?? byName.get(displayName(n)) ?? (n.qualifier ? undefined : byName.get(n.title));
     if (same) {
       remap.set(n.id, same.id);
       if (same.status === 'unknown' && n.status === 'known') upgrade.add(same.id);
@@ -40,10 +39,16 @@ export function mergeDataset(current: Data, incoming: Data): { data: Data; added
   const mapText = (text: string) => text.replace(/\[\[@([^\]]+)\]\]/g, (_, id: string) => `[[@${remap.get(id) ?? id}]]`);
   const incomingById = new Map(incoming.nodes.map((n) => [n.id, n]));
 
+  // 中身を入れる「まだ知らない星」→ 追加データの登録済みの星
+  const upgradeSource = new Map<string, KnowledgeNode>();
+  for (const x of incoming.nodes) {
+    const to = remap.get(x.id);
+    if (to && upgrade.has(to) && x.status === 'known' && !upgradeSource.has(to)) upgradeSource.set(to, x);
+  }
   const nodes = current.nodes.map((n) => {
     if (fillSummary.has(n.id)) return { ...n, summary: fillSummary.get(n.id)! };
     if (!upgrade.has(n.id)) return n;
-    const src = incoming.nodes.find((x) => remap.get(x.id) === n.id && x.status === 'known');
+    const src = upgradeSource.get(n.id);
     return src ? { ...src, id: n.id, position: n.position } : n;
   });
 

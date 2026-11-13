@@ -63,3 +63,30 @@ export function mentionEdges(statements: Statement[], nodeIds: Set<string>): Men
   }
   return [...map.values()];
 }
+
+let mentionCache: { statements: Statement[]; nodes: KnowledgeNode[]; edges: MentionEdge[] } | null = null;
+
+/** 言及のつながり（データが変わらない限り使い回す。星が1万個・記述が3万件あっても、画面の各部分で何度も数え直さないように） */
+export function mentionEdgesFor(statements: Statement[], nodes: KnowledgeNode[]): MentionEdge[] {
+  if (mentionCache && mentionCache.statements === statements && mentionCache.nodes === nodes) return mentionCache.edges;
+  const edges = mentionEdges(statements, new Set(nodes.map((n) => n.id)));
+  mentionCache = { statements, nodes, edges };
+  return edges;
+}
+
+let backlinkCache: { statements: Statement[]; map: Map<string, Statement[]> } | null = null;
+
+/** 星ID → その星にリンクしている記述（データが変わらない限り使い回す。星を開くたびに3万件の記述を調べ直さないように） */
+export function backlinksOf(starId: string, statements: Statement[]): Statement[] {
+  if (!backlinkCache || backlinkCache.statements !== statements) {
+    const map = new Map<string, Statement[]>();
+    for (const st of statements) {
+      for (const id of new Set(parseLinkIds(st.text))) {
+        if (id === st.starId) continue;
+        (map.get(id) ?? map.set(id, []).get(id)!).push(st);
+      }
+    }
+    backlinkCache = { statements, map };
+  }
+  return backlinkCache.map.get(starId) ?? [];
+}
