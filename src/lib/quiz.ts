@@ -3,6 +3,7 @@
 // - 選択肢はすべて、問題の言葉リストにある言葉のWikipediaの説明（本物の説明）から作る。うその説明は作らない。
 import { seededRandom } from './puzzle';
 import { normalize } from './search';
+import { FREE_QUIZ_PER_DAY } from './plan';
 
 export interface QuizWord {
   /** 星の名前 */
@@ -68,14 +69,20 @@ export interface QuizProgress {
   answered: Record<string, boolean>;
 }
 
-export const DAILY_COUNT = 3;
+/** 1日に解ける問題の数（無料）。有料プランでは「もっと解く」で続けられる（src/lib/plan.ts） */
+export const DAILY_COUNT = FREE_QUIZ_PER_DAY;
 
-/** 日付が変わっていたら、今日の3問を決め直す */
+/**
+ * 今日の問題を決める。日付が変わっていたら決め直す。
+ * 同じ日でも、今日の問題が上限より少なければ足す（以前の版で「1日3問」だった日の続きなど）。
+ */
 export function progressForToday(prev: QuizProgress | null, date: string, words: QuizWord[], knownTitles: Set<string>): QuizProgress {
   const answered = prev?.answered ?? {};
-  if (prev && prev.date === date && prev.today.length) return prev;
-  const today = quizOrder(date, words, new Set(Object.keys(answered)), knownTitles)
-    .slice(0, DAILY_COUNT)
+  const kept = prev && prev.date === date ? prev.today : [];
+  if (kept.length >= DAILY_COUNT) return prev!;
+  const skip = new Set([...Object.keys(answered), ...kept]);
+  const more = quizOrder(date, words, skip, knownTitles)
+    .slice(0, DAILY_COUNT - kept.length)
     .map((w) => w.title);
-  return { date, today, answered };
+  return { date, today: [...kept, ...more], answered };
 }

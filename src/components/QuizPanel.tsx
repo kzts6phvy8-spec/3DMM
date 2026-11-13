@@ -1,11 +1,12 @@
 // 言葉クイズ：難しいけれど面白い言葉の意味を4択で当てて、気に入ったら星にする。
-// 1日3問。終わったら続けて解くこともできる。
+// 無料は1日10問まで。有料プランでは続けて解ける（課金の仕組みはまだない。src/lib/plan.ts）。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
 import { DAILY_COUNT, makeQuestion, progressForToday, quizOrder, type QuizProgress, type QuizWord } from '../lib/quiz';
 import { dateKey } from '../lib/puzzle';
 import { normalize } from '../lib/search';
 import { spawnPosition } from '../lib/sceneApi';
+import { hasUnlimitedQuiz } from '../lib/plan';
 import { PanelFrame, openStar } from './Panels';
 
 const STORE_KEY = 'cosmos-quiz';
@@ -67,12 +68,12 @@ export function QuizPanel() {
 
   const byTitle = useMemo(() => new Map((words ?? []).map((w) => [w.title, w])), [words]);
 
-  // 次に出す言葉：今日の3問のうち、まだ答えていないもの → 「もっと解く」なら残りから
+  // 次に出す言葉：今日の問題のうち、まだ答えていないもの → 「もっと解く」なら残りから
   const nextWord = useMemo(() => {
     if (!words || !progress) return null;
     const todayLeft = progress.today.find((t) => !(t in progress.answered) && byTitle.has(t));
     if (todayLeft) return byTitle.get(todayLeft)!;
-    if (!extra) return null;
+    if (!extra || !hasUnlimitedQuiz()) return null;
     return quizOrder(today, words, new Set(Object.keys(progress.answered)), knownAtOpen)[0] ?? null;
   }, [words, progress, byTitle, extra, today, knownAtOpen]);
 
@@ -132,7 +133,7 @@ export function QuizPanel() {
   return (
     <PanelFrame title="言葉クイズ">
       <p className="muted small">
-        今日の{DAILY_COUNT}問：{todayDone}/{progress.today.length}問（正解 {todayCorrect}）。気になった言葉は、そのまま星にできます。
+        今日の問題：{todayDone}/{progress.today.length}問（正解 {todayCorrect}）。気になった言葉は、そのまま星にできます。
       </p>
 
       {question && (
@@ -179,11 +180,15 @@ export function QuizPanel() {
 
       {!question && (
         <div className="quiz-done">
-          {progress.today.length > 0 && <p className="report-big">今日の{DAILY_COUNT}問、おしまい！</p>}
+          {progress.today.length > 0 && <p className="report-big">今日の{progress.today.length}問、おしまい！</p>}
           <p className="muted">
-            {remaining > 0 ? `まだ解いていない言葉が${remaining}個あります。` : '用意した言葉は、ぜんぶ解きました。'}
+            {remaining === 0
+              ? '用意した言葉は、ぜんぶ解きました。'
+              : hasUnlimitedQuiz()
+                ? `まだ解いていない言葉が${remaining}個あります。`
+                : `また明日、新しい問題が出ます（1日${DAILY_COUNT}問まで）。`}
           </p>
-          {remaining > 0 && (
+          {remaining > 0 && hasUnlimitedQuiz() && (
             <div className="more-actions">
               <button onClick={() => setExtra(true)}>もっと解く</button>
             </div>

@@ -161,6 +161,7 @@ src/
   lib/puzzle.ts           毎日のつながりパズル（問題の決め方・最短の道のり）
   lib/compare.ts          友達の宇宙と重ねる（宇宙カードの作成・読み込み・比較）
   lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
+  lib/plan.ts             利用プラン（無料／有料）。課金の仕組みはまだなく、常に無料
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/externalSearch.ts   「調べる」ボタン用の外部検索
   storage/repository.ts   保存処理（IndexedDB）と旧形式からの移行
