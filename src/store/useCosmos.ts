@@ -136,7 +136,8 @@ export const useCosmos = create<CosmosState>((set, get) => {
     async init() {
       try {
         let data = await repo.load();
-        const STARTER_FLAG = 'starter-v1-added';
+        // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
+        const STARTER_FLAG = 'starter-v2-added';
         if (!data) {
           data = createSampleData();
           await repo.save(data);
@@ -146,7 +147,10 @@ export const useCosmos = create<CosmosState>((set, get) => {
         }
         // 既存データのある端末にも、初期セットを最初の1回だけ自動で追加する。
         // 一度入れたら（その後まとめて削除しても）二度と自動では入れない
-        if (!(await repo.getFlag(STARTER_FLAG))) {
+        // 以前の版を入れた後に、初期セットをまとめて削除していた人には入れない
+        const removedBefore = (await repo.getFlag('starter-v1-added')) && !data.nodes.some((n) => n.origin === 'starter' && n.status === 'known');
+        if (removedBefore) await repo.setFlag(STARTER_FLAG);
+        else if (!(await repo.getFlag(STARTER_FLAG))) {
           const before = snapshotOf(data);
           const { data: merged, added } = mergeDataset(before, createSampleData());
           await repo.save({ version: 2, ...merged });
@@ -154,7 +158,11 @@ export const useCosmos = create<CosmosState>((set, get) => {
           set({
             ...merged,
             loaded: true,
-            undo: added > 0 ? { label: `初期セット（${added}個）を追加しました`, snapshot: before, expiresAt: Date.now() + 10000 } : null,
+            undo: {
+              label: added > 0 ? `初期セット（${added}個）を追加しました` : '初期セットの内容（雑学など）を補いました',
+              snapshot: before,
+              expiresAt: Date.now() + 10000,
+            },
           });
           return;
         }
