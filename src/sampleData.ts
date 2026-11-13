@@ -15,10 +15,15 @@ interface VitalData {
  * - 第3弾（約900個）：Wikipedia「すべての言語版にあるべき項目の一覧」の記事の冒頭の文をそのまま使う
  *   （scripts/build_vital.py で作成。データは src/data/vital.json）
  * 出典のWikipedia記事は実在を確認済み。内容の一致は利用者が確認する。
- * 第3弾のデータは大きいので、必要なときだけ読み込む（ふだんの起動を軽くするため）。
+ * - 第4弾（約8,000個）：同じ一覧の「1万の項目」版から、第1〜3弾にない項目を同じ決まりで作る
+ *   （scripts/build_vital10k.py で作成。データは src/data/vital10k.json）
+ * 第3弾・第4弾のデータは大きいので、必要なときだけ読み込む（ふだんの起動を軽くするため）。
  */
 export async function createSampleData(): Promise<CosmosData> {
-  const vital = (await import('./data/vital.json')).default as unknown as VitalData;
+  const [vital, vital10k] = await Promise.all([
+    import('./data/vital.json').then((m) => m.default as unknown as VitalData),
+    import('./data/vital10k.json').then((m) => m.default as unknown as { stars: StarSpec[] }),
+  ]);
   const extraSources: SourceSpec[] = [];
   const base = [
     ...STARTER_STARS.map((s) => ({ ...s, statements: [...s.statements, ...(STARTER_TRIVIA[s.key] ?? [])] })),
@@ -39,7 +44,7 @@ export async function createSampleData(): Promise<CosmosData> {
     origin: 'starter',
     createdAt: '2026-11-13T00:00:00.000Z',
     sources: extraSources,
-    stars: [...base, ...vital.stars],
+    stars: [...base, ...vital.stars, ...vital10k.stars],
     relations: [...STARTER_RELATIONS, ...STARTER_RELATIONS_2],
   });
 }

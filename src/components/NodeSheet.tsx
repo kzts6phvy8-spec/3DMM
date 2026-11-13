@@ -6,7 +6,7 @@ import { RELATION_TYPES, STAR_KINDS, type KnowledgeNode, type Statement } from '
 import { RELATION_COLORS, categoryColor, formatDate } from '../lib/util';
 import {
   displayName,
-  parseLinkIds,
+  backlinksOf,
   plainText,
   splitText,
 } from '../lib/knowledge';
@@ -63,6 +63,33 @@ function EngagementBlock({ star }: { star: KnowledgeNode }) {
         <dt>この星は</dt><dd>{e.createdByMe ? '自分で加えた星' : '初期セットの星'}</dd>
       </dl>
     </section>
+  );
+}
+
+const BACKLINKS_SHOWN = 30;
+
+/** この星が出てくる記述の一覧。多い星（「日本」など）でも重くならないように、最初は30件だけ出す */
+function BacklinkList({ backlinks, byId }: { backlinks: Statement[]; byId: Map<string, KnowledgeNode> }) {
+  const navigate = useCosmos((s) => s.navigate);
+  const [all, setAll] = useState(false);
+  const shown = all ? backlinks : backlinks.slice(0, BACKLINKS_SHOWN);
+  return (
+    <>
+      <ul className="backlinks">
+        {shown.map((st) => {
+          const from = byId.get(st.starId);
+          return (
+            <li key={st.id}>
+              <button className="link-like" onClick={() => from && navigate(from.id)}>{from ? displayName(from) : ''}</button>
+              <p className="statement-text small"><LinkedText text={st.text} byId={byId} /></p>
+            </li>
+          );
+        })}
+      </ul>
+      {!all && backlinks.length > BACKLINKS_SHOWN && (
+        <button className="small-btn ghost" onClick={() => setAll(true)}>すべて見る（ほか{backlinks.length - BACKLINKS_SHOWN}件）</button>
+      )}
+    </>
   );
 }
 
@@ -192,7 +219,7 @@ export function NodeSheet({
   }, [node, relations, byId]);
   /** この星にリンクしている記述（どこから言及されているか） */
   const backlinks = useMemo(
-    () => (node ? statements.filter((st) => st.starId !== node.id && parseLinkIds(st.text).includes(node.id)) : []),
+    () => (node ? backlinksOf(node.id, statements) : []),
     [node, statements],
   );
 
@@ -254,7 +281,7 @@ export function NodeSheet({
   // ---- まだ知らない星 ----
   if (node.status === 'unknown') {
     return (
-      <section className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="まだ知らない星">
+      <section key={`unknown-${node.id}`} className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="まだ知らない星">
         <div className="sheet-handle" />
         {breadcrumb}
         {header}
@@ -275,17 +302,7 @@ export function NodeSheet({
             <button onClick={() => onEdit(node.id)}>＋ 自分で書いて登録する</button>
           </div>
           <h3>この言葉が出てくる記述（{backlinks.length}）</h3>
-          <ul className="backlinks">
-            {backlinks.map((st) => {
-              const from = byId.get(st.starId);
-              return (
-                <li key={st.id}>
-                  <button className="link-like" onClick={() => from && navigate(from.id)}>{from ? displayName(from) : ''}</button>
-                  <p className="statement-text small"><LinkedText text={st.text} byId={byId} /></p>
-                </li>
-              );
-            })}
-          </ul>
+          <BacklinkList key={node.id} backlinks={backlinks} byId={byId} />
         </div>
       </section>
     );
@@ -293,7 +310,7 @@ export function NodeSheet({
 
   // ---- 登録済みの星 ----
   return (
-    <section className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="星の詳細">
+    <section key={`known-${node.id}`} className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="星の詳細">
       <div className="sheet-handle" />
       {breadcrumb}
       {header}
@@ -382,17 +399,7 @@ export function NodeSheet({
           {backlinks.length > 0 && (
             <>
               <h3>この星が出てくる記述（{backlinks.length}）</h3>
-              <ul className="backlinks">
-                {backlinks.map((st) => {
-                  const from = byId.get(st.starId);
-                  return (
-                    <li key={st.id}>
-                      <button className="link-like" onClick={() => from && navigate(from.id)}>{from ? displayName(from) : ''}</button>
-                      <p className="statement-text small"><LinkedText text={st.text} byId={byId} /></p>
-                    </li>
-                  );
-                })}
-              </ul>
+              <BacklinkList key={node.id} backlinks={backlinks} byId={byId} />
             </>
           )}
 

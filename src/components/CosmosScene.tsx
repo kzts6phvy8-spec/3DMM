@@ -9,7 +9,7 @@ import type { KnowledgeNode, Vec3 } from '../types';
 import { RELATION_COLORS, starRadius } from '../lib/util';
 import { sceneApi } from '../lib/sceneApi';
 import { labelElements } from '../lib/labelRegistry';
-import { mentionEdges, parseLinkIds, type MentionEdge } from '../lib/knowledge';
+import { backlinksOf, mentionEdgesFor, parseLinkIds, type MentionEdge } from '../lib/knowledge';
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
 
 function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
@@ -48,7 +48,7 @@ function RelationLines() {
   const statements = useCosmos((s) => s.statements);
   const selectedId = useCosmos((s) => s.selectedId);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
-  const mentions = useMemo(() => mentionEdges(statements, new Set(byId.keys())), [statements, byId]);
+  const mentions = useMemo(() => mentionEdgesFor(statements, nodes), [statements, nodes]);
   // 「広げる」で生まれた、まだ知らない星と、もとの星を結ぶ点線
   const seedEdges = useMemo<MentionEdge[]>(
     () =>
@@ -177,11 +177,8 @@ function LabelProjector() {
     const set = new Set<string>();
     if (!selectedId) return set;
     set.add(selectedId);
-    for (const st of statements) {
-      const ids = parseLinkIds(st.text);
-      if (st.starId === selectedId) ids.forEach((id) => set.add(id));
-      else if (ids.includes(selectedId)) set.add(st.starId);
-    }
+    for (const st of statements) if (st.starId === selectedId) parseLinkIds(st.text).forEach((id) => set.add(id));
+    for (const st of backlinksOf(selectedId, statements)) set.add(st.starId);
     // 選んだ星から広げた星の名前も見せる
     for (const n of useCosmos.getState().nodes) if (n.seedOf === selectedId) set.add(n.id);
     return set;
@@ -191,8 +188,15 @@ function LabelProjector() {
   const widths = useMemo(() => new Map<string, { text: string; w: number }>(), []);
 
   const controls = useThree((st) => st.controls) as OrbitControlsImpl | null;
+  // 前のコマと同じ見え方なら、ラベルの計算を省く（星が1万個あっても、止まっているときは軽く）
+  const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown }), []);
   useFrame(({ camera, size }) => {
     const { nodes, labelDensity } = useCosmos.getState();
+    const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}`;
+    if (key === last.key && nodes === last.nodes && near === last.near) return;
+    last.key = key;
+    last.nodes = nodes;
+    last.near = near;
     // 今見ている距離（注視点までの距離）を基準に、どこまでの名前を出すかを決める
     const d0 = controls ? camera.position.distanceTo(controls.target) : 40;
     // 名前の表示量の設定（少なめ／普通／多め）
@@ -206,7 +210,6 @@ function LabelProjector() {
       const r = unknown ? starRadius(1) * 0.75 : starRadius(n.importance);
       v.set(n.position[0], n.position[1] - r - 0.35, n.position[2]);
       const dist = camera.position.distanceTo(v);
-      v.project(camera);
       // 遠くからは重要な星の名前だけ見せ、近づくほど多くの名前が見えるようにする
       let opacity: number;
       if (near.has(n.id)) opacity = 1;
@@ -215,6 +218,12 @@ function LabelProjector() {
         const limit = d0 * (0.75 + n.importance * 0.14) + densityBonus * (d0 / 30);
         opacity = Math.max(0, Math.min(1, (limit - dist) / (d0 * 0.12)));
       }
+      // 名前を出さない遠い星は、画面上の位置を計算しない（重い計算を減らす）
+      if (opacity <= 0.02) {
+        hide(el);
+        continue;
+      }
+      v.project(camera);
       const sx = ((v.x + 1) / 2) * size.width;
       const sy = ((1 - v.y) / 2) * size.height;
       // 画面の外・後ろ・薄すぎるものは候補にしない
@@ -325,7 +334,7 @@ export function CosmosScene() {
       set.add(r.sourceNodeId);
       set.add(r.targetNodeId);
     }
-    for (const m of mentionEdges(statements, new Set(nodes.map((n) => n.id)))) {
+    for (const m of mentionEdgesFor(statements, nodes)) {
       set.add(m.a);
       set.add(m.b);
     }

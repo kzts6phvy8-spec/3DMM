@@ -83,8 +83,9 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
     page: '',
     addedAt: t,
   }));
+  const sourceKeys = new Set(sourceSpecs.map((s) => s.key));
   const sourceId = (key: string) => {
-    if (!sourceSpecs.some((s) => s.key === key)) throw new Error(`出典 ${key} がありません`);
+    if (!sourceKeys.has(key)) throw new Error(`出典 ${key} がありません`);
     return idOf(`src-${key}`);
   };
 
@@ -220,30 +221,49 @@ function clusterLayout(stars: StarSpec[]): Vec3[] {
     return [c[0] + Math.cos(th) * ru * rr, c[1] + u * rr * 0.8, c[2] + Math.sin(th) * ru * rr];
   });
   // 近すぎる星を少しずつ押し離す（格子に分けて、近くの星どうしだけを比べる）
+  // 星が1万個あっても速いように、格子の番地は文字列ではなく数値で表し、計算の途中で配列を作らない
   const MIN = 3.0;
+  // 番地 (x, y, z) を1つの数にする。各軸 ±16384 マスまで（宇宙の大きさに対して十分）。2の53乗を超えないので、別の番地が同じ数にならない
+  const OFF = 1 << 14;
+  const keyOf = (x: number, y: number, z: number) => ((x + OFF) * 2 ** 15 + (y + OFF)) * 2 ** 15 + (z + OFF);
+  const fixed = stars.map((st) => !!st.position);
   for (let iter = 0; iter < 30; iter++) {
-    const grid = new Map<string, number[]>();
-    const cell = (p: Vec3) => p.map((v) => Math.floor(v / MIN));
-    pos.forEach((p, i) => {
-      const k = cell(p).join(',');
-      (grid.get(k) ?? grid.set(k, []).get(k)!).push(i);
-    });
+    const grid = new Map<number, number[]>();
+    for (let i = 0; i < pos.length; i++) {
+      const k = keyOf(Math.floor(pos[i][0] / MIN), Math.floor(pos[i][1] / MIN), Math.floor(pos[i][2] / MIN));
+      const list = grid.get(k);
+      if (list) list.push(i);
+      else grid.set(k, [i]);
+    }
     let moved = false;
     for (let i = 0; i < pos.length; i++) {
-      const [cx, cy, cz] = cell(pos[i]);
+      // 格子の番地は、この回の初めの位置で決める（押し離して動いても同じ番地のまま比べる）
+      const x0 = Math.floor(pos[i][0] / MIN);
+      const y0 = Math.floor(pos[i][1] / MIN);
+      const z0 = Math.floor(pos[i][2] / MIN);
       for (let dx = -1; dx <= 1; dx++)
         for (let dy = -1; dy <= 1; dy++)
           for (let dz = -1; dz <= 1; dz++) {
-            for (const j of grid.get(`${cx + dx},${cy + dy},${cz + dz}`) ?? []) {
+            const list = grid.get(keyOf(x0 + dx, y0 + dy, z0 + dz));
+            if (!list) continue;
+            for (const j of list) {
               if (j <= i) continue;
-              const d = [pos[j][0] - pos[i][0], pos[j][1] - pos[i][1], pos[j][2] - pos[i][2]];
-              const len = Math.hypot(d[0], d[1], d[2]) || 0.01;
+              const d0 = pos[j][0] - pos[i][0];
+              const d1 = pos[j][1] - pos[i][1];
+              const d2 = pos[j][2] - pos[i][2];
+              const len = Math.hypot(d0, d1, d2) || 0.01;
               if (len >= MIN) continue;
               const push = (MIN - len) / 2 / len;
               moved = true;
-              for (let k = 0; k < 3; k++) {
-                if (!stars[i].position) pos[i][k] -= d[k] * push;
-                if (!stars[j].position) pos[j][k] += d[k] * push;
+              if (!fixed[i]) {
+                pos[i][0] -= d0 * push;
+                pos[i][1] -= d1 * push;
+                pos[i][2] -= d2 * push;
+              }
+              if (!fixed[j]) {
+                pos[j][0] += d0 * push;
+                pos[j][1] += d1 * push;
+                pos[j][2] += d2 * push;
               }
             }
           }
