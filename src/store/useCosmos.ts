@@ -15,12 +15,13 @@ import { createSampleData } from '../sampleData';
 import { mergeDataset, removeStarter } from '../data/mergeDataset';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
+import type { CosmosCard } from '../lib/compare';
 import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 
 /** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
 export type Mode = 'view' | 'connect';
 /** 宇宙の上に重ねて開く画面 */
-export type Panel = 'search' | 'list' | 'more' | 'report' | 'puzzle' | null;
+export type Panel = 'search' | 'list' | 'more' | 'report' | 'puzzle' | 'compare' | null;
 /** 星の名前の表示量 */
 export type LabelDensity = 'few' | 'normal' | 'many';
 
@@ -60,12 +61,15 @@ interface CosmosState extends Data {
   draggingId: string | null;
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
   engagement: EngagementMap;
+  /** 友達の宇宙と重ねて表示しているとき：友達の宇宙カード */
+  overlay: { card: CosmosCard } | null;
   /** 直前の削除を「元に戻す」ための控え */
   undo: { label: string; snapshot: Data; expiresAt: number } | null;
 
   init(): Promise<void>;
   /** 星を開いたことを記録する */
   recordView(id: string): void;
+  setOverlay(overlay: { card: CosmosCard } | null): void;
   /** バックアップにあった関わり方の記録を、今の記録に合わせる（減らさない） */
   mergeEngagementFrom(map: EngagementMap): void;
   select(id: string | null): void;
@@ -181,6 +185,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
     labelDensity: loadDensity(),
     draggingId: null,
     engagement: {},
+    overlay: null,
     undo: null,
 
     async init() {
@@ -250,6 +255,10 @@ export const useCosmos = create<CosmosState>((set, get) => {
       repo.saveEngagement(engagement).catch((e: unknown) => {
         set({ error: `関わり方の記録を保存できませんでした: ${e instanceof Error ? e.message : String(e)}` });
       });
+    },
+
+    setOverlay(overlay) {
+      set({ overlay });
     },
 
     mergeEngagementFrom(map) {

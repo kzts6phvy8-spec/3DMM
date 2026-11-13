@@ -9,6 +9,11 @@ import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useCosmos } from '../store/useCosmos';
 import { categoryColor, starRadius } from '../lib/util';
+import type { OverlayClass } from '../lib/compare';
+import { useOverlayMap } from './useOverlayMap';
+
+/** 友達と重ねるときの色 */
+export const OVERLAY_COLORS: Record<OverlayClass, string> = { both: '#ffd36e', mine: '#7fb8ff', friend: '#ff8fc8' };
 
 const TAP_TOLERANCE = 10; // 指のぶれを許す量（ピクセル）
 const LONG_PRESS_MS = 450; // 長押しとみなす時間
@@ -53,6 +58,7 @@ function nodeRadius(status: string, importance: number) {
 /** すべての星を1回で描く */
 export function StarField({ connected }: { connected: Set<string> }) {
   const nodes = useCosmos((s) => s.nodes);
+  const overlay = useOverlayMap();
   const { size, camera, gl } = useThree();
 
   const geometry = useMemo(() => {
@@ -65,11 +71,12 @@ export function StarField({ connected }: { connected: Set<string> }) {
     nodes.forEach((node, i) => {
       pos.set(node.position, i * 3);
       const unknown = node.status === 'unknown';
-      c.set(unknown ? '#8f99c2' : categoryColor(node.category));
+      const cls = overlay?.[node.id];
+      c.set(overlay ? (cls ? OVERLAY_COLORS[cls] : '#5a6280') : unknown ? '#8f99c2' : categoryColor(node.category));
       col.set([c.r, c.g, c.b], i * 3);
-      sz[i] = nodeRadius(node.status, node.importance);
-      // まだ知らない星・つながりのない星は淡く光らせる
-      al[i] = unknown ? 0.4 : connected.has(node.id) ? 0.85 : 0.55;
+      sz[i] = nodeRadius(node.status, node.importance) * (cls ? 1.3 : 1);
+      // まだ知らない星・つながりのない星は淡く光らせる。重ねて表示しているときは、関係のない星を暗くする
+      al[i] = overlay ? (cls ? 1 : 0.12) : unknown ? 0.4 : connected.has(node.id) ? 0.85 : 0.55;
     });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -78,7 +85,7 @@ export function StarField({ connected }: { connected: Set<string> }) {
     g.setAttribute('alpha', new THREE.BufferAttribute(al, 1));
     g.computeBoundingSphere();
     return g;
-  }, [nodes, connected]);
+  }, [nodes, connected, overlay]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   const material = useMemo(
