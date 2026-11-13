@@ -1,6 +1,6 @@
 import type { CosmosData } from './types';
 import { buildDataset } from './data/buildDataset';
-import { STARTER_RELATIONS, STARTER_STARS } from './data/starterSet';
+import { STARTER_RELATIONS, STARTER_STARS, STARTER_TRIVIA } from './data/starterSet';
 
 /**
  * 初回起動時のデータ＝初期セット（約100個）。
@@ -11,7 +11,8 @@ export function createSampleData(): CosmosData {
   return buildDataset({
     origin: 'starter',
     createdAt: '2026-11-13T00:00:00.000Z',
-    stars: STARTER_STARS,
+    // 雑学は各星の記述の最後に足す（既存の記述のIDが変わらないように）
+    stars: STARTER_STARS.map((s) => ({ ...s, statements: [...s.statements, ...(STARTER_TRIVIA[s.key] ?? [])] })),
     relations: STARTER_RELATIONS,
   });
 }

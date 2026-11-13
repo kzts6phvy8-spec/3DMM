@@ -195,6 +195,13 @@ export function NodeSheet({
     [node, statements],
   );
 
+  // プレビューに出す雑学（開くたびにランダムに1つ）
+  const trivia = useMemo(() => {
+    const list = own.filter((st) => st.topic === '雑学');
+    return list.length ? list[Math.floor(Math.random() * list.length)] : undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, own.length]);
+
   if (!node || mode !== 'view') return null;
 
   const certainty = starCertainty(node.id, statements);
@@ -272,7 +279,17 @@ export function NodeSheet({
           </span>
         )}
       </div>
-      {node.summary && <p className="summary">{node.summary}</p>}
+      {node.summary ? (
+        <p className="summary">{node.summary}</p>
+      ) : (
+        own[0] && <p className="summary"><LinkedText text={own[0].text} byId={byId} /></p>
+      )}
+      {!expanded && trivia && (
+        <p className="trivia">
+          <span className="trivia-mark">✦ 雑学</span>
+          <LinkedText text={trivia.text} byId={byId} />
+        </p>
+      )}
 
       <div className="sheet-actions">
         {!expanded && <button className="primary" onClick={() => setExpanded(true)}>開く</button>}
@@ -293,7 +310,7 @@ export function NodeSheet({
           {own.length === 0 && <p className="muted">まだ記述がありません。事実や意見を1文ずつ追加できます。</p>}
           {[...groups.entries()].map(([topic, list]) => (
             <div key={topic || '_'}>
-              {topic && <h4 className="topic-head">{topic}</h4>}
+              {topic && <h4 className="topic-head">{topic === '雑学' ? '✦ 雑学' : topic}</h4>}
               <ul className="statements">
                 {list.map((st) => (
                   <StatementItem key={st.id} st={st} star={node} byId={byId} onEdit={() => onEditStatement(node.id, st.id)} />
