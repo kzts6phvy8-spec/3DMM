@@ -83,6 +83,7 @@ button.danger { color: var(--danger); }
   padding: 2px 8px; border-radius: 999px; background: rgba(5, 6, 15, 0.55);
   user-select: none; -webkit-user-select: none;
 }
+.star-label.is-unknown { color: var(--muted); font-style: italic; background: rgba(5, 6, 15, 0.35); }
 .star-label.is-selected { font-weight: 700; background: rgba(127, 184, 255, 0.3); }
 
 .sheet {
@@ -164,4 +165,56 @@ button.danger { color: var(--danger); }
   .sheet { left: auto; right: 16px; bottom: 16px; width: 400px; border-radius: 20px; border: 1px solid var(--panel-border); }
   .modal-backdrop { align-items: center; }
   .modal { border-radius: 20px; }
+}
+
+/* ---- 星のプレビューとページ ---- */
+.sheet.is-expanded { max-height: 88dvh; }
+.sheet > .sheet-handle, .sheet > .sheet-header, .sheet > .sheet-sub, .sheet > .summary, .sheet > .sheet-actions { flex-shrink: 0; }
+.sheet-body { flex: 1 1 auto; min-height: 0; }
+.sheet-sub { padding: 2px 16px 0 38px; font-size: 12px; color: var(--muted); }
+.sheet-sub .certainty { color: var(--accent); }
+.summary { margin: 6px 16px 0; line-height: 1.6; }
+.sheet-actions.inline { padding: 8px 0; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.section-head h3 { margin: 8px 0; }
+.topic-head { margin: 12px 0 4px; font-size: 12px; color: var(--accent); letter-spacing: 0.05em; }
+.statements { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.statement { border: 1px solid var(--panel-border); border-radius: 12px; padding: 8px 10px; background: rgba(255, 255, 255, 0.03); }
+.statement.is-opinion { border-style: dashed; background: transparent; }
+.statement-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.statement-head .small-btn.ghost { margin-left: auto; }
+.statement-text { margin: 6px 0 0; line-height: 1.7; }
+.statement-text.small { font-size: 13px; margin: 2px 0 0; }
+.statement.is-opinion .statement-text { font-style: italic; color: #cdd5f5; }
+.statement-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--panel-border); display: flex; flex-direction: column; gap: 8px; }
+.statement-detail h4 { margin: 0; font-size: 12px; color: var(--muted); }
+.check-note { margin: 0; font-size: 13px; color: #b9f5c9; }
+.check-actions, .search-sites, .link-tools, .link-candidates { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.small-btn { min-height: 36px; padding: 0 10px; font-size: 13px; border-radius: 10px; }
+.small-btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.small { font-size: 12px; }
+.inline-link {
+  display: inline; min-height: 0; padding: 0 2px; margin: 0; border: none; border-radius: 4px;
+  background: rgba(127, 184, 255, 0.12); color: var(--accent); font: inherit; white-space: normal;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(127, 184, 255, 0.5);
+}
+.inline-link.is-unknown { color: #ffb4b4; background: rgba(255, 140, 140, 0.1); text-decoration-style: dotted; }
+.link-like { min-height: 32px; padding: 0; border: none; background: none; color: var(--accent); font-weight: 600; }
+.backlinks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.source-list { margin: 0; padding-left: 18px; font-size: 13px; }
+.source-list a { color: var(--accent); word-break: break-all; }
+.source-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.source-add, .source-new, .link-picker { display: flex; flex-direction: column; gap: 6px; }
+.chip.small { min-height: 34px; font-size: 13px; }
+.form-warning { border: 1px solid #ffcf6b; color: #ffe2a3; border-radius: 10px; padding: 8px 10px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.badge.v-unverified { color: #ffb4b4; border-color: #ff8f8f; }
+.badge.v-sourced { color: #ffe27a; border-color: #ffe27a; }
+.badge.v-verified { color: #8dffb0; border-color: #8dffb0; }
+.badge.v-disputed { color: #ff6b8b; border-color: #ff6b8b; }
+.badge.kind-opinion { color: #d9b8ff; border-color: #d9b8ff; border-style: dashed; }
+.badge.topic { color: var(--accent); border-color: var(--panel-border); }
+.undo-toast {
+  position: fixed; z-index: 210; left: 12px; right: 12px; bottom: calc(var(--safe-bottom) + 16px);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 8px 8px 14px;
+  background: #1a2140; border: 1px solid var(--accent); border-radius: 14px; font-size: 14px;
 }

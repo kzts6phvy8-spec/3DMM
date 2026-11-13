@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { useCosmos } from '../store/useCosmos';
 import { RELATION_TYPES, type RelationType } from '../types';
 import { RELATION_COLORS } from '../lib/util';
+import { displayName } from '../lib/knowledge';
 
 export function RelationForm() {
   const pending = useCosmos((s) => s.pendingConnection);
@@ -10,6 +11,7 @@ export function RelationForm() {
   const { addRelation, cancelConnection } = useCosmos.getState();
   const [type, setType] = useState<RelationType>('similarity');
   const [explanation, setExplanation] = useState('');
+  const [explanationKind, setExplanationKind] = useState<'fact' | 'opinion'>('fact');
 
   if (!pending) return null;
   const source = nodes.find((n) => n.id === pending.sourceId);
@@ -17,7 +19,7 @@ export function RelationForm() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    addRelation(pending.sourceId, pending.targetId, type, explanation.trim());
+    addRelation(pending.sourceId, pending.targetId, type, explanation.trim(), explanationKind);
   };
 
   return (
@@ -25,7 +27,7 @@ export function RelationForm() {
       <form className="modal" onSubmit={submit} onClick={(e) => e.stopPropagation()}>
         <h2>つながりを作る</h2>
         <p className="pair">
-          <strong>{source?.title}</strong> → <strong>{target?.title}</strong>
+          <strong>{source && displayName(source)}</strong> → <strong>{target && displayName(target)}</strong>
         </p>
         <div className="field">
           <span>関係の種類</span>
@@ -41,6 +43,13 @@ export function RelationForm() {
                 {RELATION_TYPES[k]}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="field">
+          <span>理由の区分</span>
+          <div className="chips">
+            <button type="button" className={explanationKind === 'fact' ? 'chip active' : 'chip'} onClick={() => setExplanationKind('fact')}>事実</button>
+            <button type="button" className={explanationKind === 'opinion' ? 'chip active' : 'chip'} onClick={() => setExplanationKind('opinion')}>意見（自分の発見）</button>
           </div>
         </div>
         <label>
