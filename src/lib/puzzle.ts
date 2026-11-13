@@ -57,7 +57,7 @@ function distances(g: Graph, from: string): Map<string, number> {
 }
 
 /** 日付の文字列から、決まった並びの乱数を作る（同じ日なら同じ結果） */
-function seededRandom(seed: string): () => number {
+export function seededRandom(seed: string): () => number {
   let h = 1779033703 ^ seed.length;
   for (let i = 0; i < seed.length; i++) {
     h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);

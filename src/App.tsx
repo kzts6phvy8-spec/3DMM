@@ -10,6 +10,7 @@ import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar
 import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
 import { ReportPanel } from './components/ReportPanel';
 import { PuzzlePanel } from './components/PuzzlePanel';
+import { QuizPanel } from './components/QuizPanel';
 import { ComparePanel, OverlayBanner } from './components/ComparePanel';
 import { LAYOUT } from './config/layout';
 import { SelectionToStar } from './components/SelectionToStar';
@@ -68,6 +69,7 @@ export default function App() {
       {panel === 'more' && <MorePanel />}
       {panel === 'report' && <ReportPanel />}
       {panel === 'puzzle' && <PuzzlePanel />}
+      {panel === 'quiz' && <QuizPanel />}
       {panel === 'compare' && (
         <ComparePanel
           onCreate={(title) => {
