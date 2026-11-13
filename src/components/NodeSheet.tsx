@@ -396,7 +396,6 @@ export function NodeSheet({
           <dl className="meta">
             {node.aliases.length > 0 && (<><dt>別名</dt><dd>{node.aliases.join('、')}</dd></>)}
             {node.tags.length > 0 && (<><dt>タグ</dt><dd>{node.tags.map((t) => <span key={t} className="tag">#{t}</span>)}</dd></>)}
-            <dt>重要度</dt><dd>{'★'.repeat(node.importance)}{'☆'.repeat(5 - node.importance)}</dd>
             <dt>登録</dt><dd>{formatDate(node.createdAt)}</dd>
             {node.origin === 'starter' && (<><dt>出どころ</dt><dd>初期セット（AIが用意。出典は自分で確認してください）</dd></>)}
           </dl>

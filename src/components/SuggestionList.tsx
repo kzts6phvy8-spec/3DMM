@@ -27,7 +27,7 @@ export function SuggestionList({ star }: { star: KnowledgeNode }) {
     return () => ctrl.abort();
     // 記事の取り直しは星が変わったときだけ（毎回の編集では取り直さない）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [star.id]);
+  }, [star.id, star.wikiTitle]);
 
   // 2つの手がかりをまとめる（同じ星は理由を合わせる）
   const merged = useMemo(() => {
