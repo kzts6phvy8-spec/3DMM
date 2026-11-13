@@ -50,6 +50,11 @@ function textFor(node: KnowledgeNode | undefined, own: Statement[], byId: Map<st
  * 候補を出すための準備データ。データが変わらない限り使い回す（星が1万個あっても、候補を出すたびに作り直さない）。
  * 記述を1つ足しただけのときは、変わった星の分だけ作り直す（名前が変わったときは全部作り直す）。
  */
+/** つながりの候補の計算に使う下ごしらえを、先に済ませておく（星のページを初めて開いたときに待たせないように） */
+export function warmSuggest(nodes: KnowledgeNode[], statements: Statement[]) {
+  prepare(nodes, statements, new Map(nodes.map((n) => [n.id, n])));
+}
+
 function prepare(nodes: KnowledgeNode[], statements: Statement[], byId: Map<string, KnowledgeNode>): Prepared {
   const prev = prepared;
   if (prev && prev.nodes === nodes && prev.statements === statements) return prev;

@@ -17,6 +17,7 @@ import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
 import type { CosmosCard } from '../lib/compare';
 import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
+import { scheduleWarmup } from '../lib/warmup';
 
 /** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
 export type Mode = 'view' | 'connect';
@@ -622,4 +623,14 @@ export function clearError() {
 // 星が選ばれたら（タップ・リンク・検索など、どの方法でも）「開いた」と記録する
 useCosmos.subscribe((s, prev) => {
   if (s.loaded && s.selectedId && s.selectedId !== prev.selectedId) s.recordView(s.selectedId);
+});
+
+// 読み込みが終わったとき・データが変わったときに、検索や星のページで使う下ごしらえを、手が空いているうちに済ませる
+const warmData = () => {
+  const { nodes, statements, sources } = useCosmos.getState();
+  return { nodes, statements, sources };
+};
+useCosmos.subscribe((s, prev) => {
+  if (!s.loaded) return;
+  if (!prev.loaded || s.nodes !== prev.nodes || s.statements !== prev.statements || s.sources !== prev.sources) scheduleWarmup(warmData);
 });
