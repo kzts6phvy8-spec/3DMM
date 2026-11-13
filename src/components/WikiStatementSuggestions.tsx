@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
 import type { KnowledgeNode } from '../types';
-import { fetchWikiArticle, type WikiArticleResult } from '../lib/wikipedia';
+import { applyMarks, fetchWikiArticle, fetchWikiLinkTitles, type WikiArticleResult } from '../lib/wikipedia';
+import { LinkableSentence } from './LinkableSentence';
+import { useTermsFor } from './useTerms';
 import { plainText } from '../lib/knowledge';
 import { normalize } from '../lib/search';
 
@@ -15,13 +17,22 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
   const [openSection, setOpenSection] = useState<number>(0);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [done, setDone] = useState<string | null>(null);
+  const [wikiLinks, setWikiLinks] = useState<string[]>([]);
+  const [marks, setMarks] = useState<Map<string, Set<string>>>(new Map());
 
   // 別の星に移ったら、候補の表示をはじめに戻す
   useEffect(() => {
     setResult('idle');
     setPicked(new Set());
+    setMarks(new Map());
     setDone(null);
   }, [star.id]);
+
+  const allSentences = useMemo(
+    () => (typeof result === 'object' && result.status === 'ok' ? result.sections.flatMap((s) => s.sentences) : []),
+    [result],
+  );
+  const { terms, blockers } = useTermsFor(allSentences, wikiLinks, star.id);
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   // すでにこの星にある文は候補から外す
@@ -33,7 +44,10 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
   const load = async () => {
     setResult('loading');
     setDone(null);
-    setResult(await fetchWikiArticle(star.title));
+    const [r, links] = await Promise.all([fetchWikiArticle(star.title), fetchWikiLinkTitles(star.title)]);
+    setWikiLinks(links);
+    setMarks(new Map());
+    setResult(r);
     setOpenSection(0);
   };
 
@@ -59,7 +73,20 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
     .map((sec) => ({ ...sec, sentences: sec.sentences.filter((t) => !existing.has(normalize(t))) }))
     .filter((sec) => sec.sentences.length > 0);
   const key = (si: number, t: string) => `${si}|${t}`;
-  const chosen = sections.flatMap((sec, si) => sec.sentences.filter((t) => picked.has(key(si, t))).map((t) => ({ text: t, topic: sec.topic })));
+  const chosen = sections.flatMap((sec, si) =>
+    sec.sentences
+      .filter((t) => picked.has(key(si, t)))
+      .map((t) => ({ text: applyMarks(t, terms, marks.get(key(si, t)) ?? new Set(), blockers), topic: sec.topic })),
+  );
+  const toggleMark = (k: string, term: string) => {
+    const next = new Map(marks);
+    const set = new Set(next.get(k) ?? []);
+    if (set.has(term)) set.delete(term);
+    else set.add(term);
+    next.set(k, set);
+    setMarks(next);
+    if (set.size && !picked.has(k)) setPicked(new Set([...picked, k]));
+  };
 
   return (
     <div className="wiki-box">
@@ -68,6 +95,7 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
         <a className="small" href={result.url} target="_blank" rel="noreferrer">記事を開く</a>
       </div>
       <p className="muted small">追加したい文を選んでください。出典は自動で付きます（状態は「出典あり」。確認はあなたが行います）。</p>
+      {terms.length > 0 && <p className="muted small">点線の言葉を押すと、その言葉も星になります（まだ知らない星として宇宙に現れます）。</p>}
       {sections.length === 0 && <p className="muted">新しい候補はありません。</p>}
       <ul className="wiki-sections">
         {sections.map((sec, si) => (
@@ -92,7 +120,7 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
                           setPicked(next);
                         }}
                       />
-                      <span>{t}</span>
+                      <LinkableSentence text={t} terms={terms} blockers={blockers} marked={marks.get(key(si, t)) ?? new Set()} onToggle={(term) => toggleMark(key(si, t), term)} />
                     </label>
                   </li>
                 ))}

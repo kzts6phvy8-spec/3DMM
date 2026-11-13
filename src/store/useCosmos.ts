@@ -15,7 +15,7 @@ import { indexedDbRepository, type CosmosRepository } from '../storage/repositor
 import { createSampleData } from '../sampleData';
 import { mergeDataset, removeStarter } from '../data/mergeDataset';
 import { newId, nowIso } from '../lib/util';
-import { parseLinkIds } from '../lib/knowledge';
+import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 
 /** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
 export type Mode = 'view' | 'connect';
@@ -446,6 +446,23 @@ export const useCosmos = create<CosmosState>((set, get) => {
     },
 
     registerFromWikipedia(starId, input) {
+      // 文の中の [[言葉]] を星へのリンクにする。宇宙にない言葉は「まだ知らない星」として作る
+      const resolve = (text: string) =>
+        text.replace(/\[\[([^\]@][^\]]*)\]\]/g, (_, raw: string) => {
+          const name = raw.trim();
+          const { nodes } = get();
+          const found =
+            nodes.find((n) => displayName(n) === name) ??
+            nodes.find((n) => n.title === name) ??
+            nodes.find((n) => n.aliases.includes(name));
+          return linkToken((found ?? get().ensureStar(name, starId)).id);
+        });
+      input = {
+        ...input,
+        sentences: input.sentences.map((item) =>
+          typeof item === 'string' ? resolve(item) : { ...item, text: resolve(item.text) },
+        ),
+      };
       const t = nowIso();
       const existing = get().sources.find((src) => src.url === input.url || src.title === `Wikipedia：${input.articleTitle}`);
       const source: Source = existing ?? {
