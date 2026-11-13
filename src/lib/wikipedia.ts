@@ -155,6 +155,20 @@ export async function fetchWikiLinkTitles(title: string, signal?: AbortSignal): 
 
 export type Segment = { text: string; term?: string };
 
+const KATAKANA_LATIN = /[\u30A0-\u30FFー・A-Za-z0-9]/;
+
+/**
+ * カタカナや英字の言葉が、もっと長い言葉の一部になっていないかを確かめる。
+ * 例：「インド・ヨーロッパ語族」の中の「インド」は、言葉の切れ目ではないので選ばない。
+ */
+function isWordBoundary(text: string, start: number, end: number, term: string): boolean {
+  const before = text[start - 1] ?? '';
+  const after = text[end] ?? '';
+  if (KATAKANA_LATIN.test(term[0]) && before && KATAKANA_LATIN.test(before)) return false;
+  if (KATAKANA_LATIN.test(term[term.length - 1]) && after && KATAKANA_LATIN.test(after)) return false;
+  return true;
+}
+
 /**
  * 文を「ふつうの文字」と「星にできる言葉」に分ける。
  * 長い言葉を優先し、重ならないように選ぶ（例：「ロマンス諸語」を「ロマンス」より優先）。
@@ -179,7 +193,7 @@ export function segmentByTerms(text: string, terms: string[], blockers: string[]
       const i = text.indexOf(term, from);
       if (i < 0) break;
       const end = i + term.length;
-      if (!hits.some((h) => i < h.end && end > h.start)) hits.push({ start: i, end, term });
+      if (!hits.some((h) => i < h.end && end > h.start) && isWordBoundary(text, i, end, term)) hits.push({ start: i, end, term });
       from = end;
     }
   }

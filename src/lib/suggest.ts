@@ -34,10 +34,19 @@ export function suggestConnections(
   statements: Statement[],
   relations: Relation[],
   limit = 6,
+  /** つなぐ画面用：記述のリンクだけでつながっている星や、同じ分野の星も候補に入れる */
+  forConnect = false,
 ): Suggestion[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const nodeIds = new Set(byId.keys());
-  const neighbors = directNeighbors(target.id, statements, relations, nodeIds);
+  // つなぐ画面では、すでに意味のつながりがある星だけを除く
+  const neighbors = forConnect
+    ? new Set(
+        relations
+          .filter((r) => r.sourceNodeId === target.id || r.targetNodeId === target.id)
+          .map((r) => (r.sourceNodeId === target.id ? r.targetNodeId : r.sourceNodeId)),
+      )
+    : directNeighbors(target.id, statements, relations, nodeIds);
   const map = new Map<string, Suggestion>();
   const add = (id: string, score: number, reason: string) => {
     if (id === target.id || neighbors.has(id)) return;
@@ -95,6 +104,18 @@ export function suggestConnections(
     for (const n of nodes) {
       const shared = n.tags.filter((t) => myTags.has(normalize(t)));
       if (shared.length) add(n.id, shared.length, `同じタグ「#${shared[0]}」`);
+    }
+  }
+
+  if (forConnect) {
+    // 記述のリンクでつながっている星（まだ意味のつながりがない）
+    for (const m of mentionEdges(statements, nodeIds)) {
+      const other = m.a === target.id ? m.b : m.b === target.id ? m.a : null;
+      if (other) add(other, 2, '記述の中でつながっている（理由はまだない）');
+    }
+    // 同じ分野
+    if (target.category) {
+      for (const n of nodes) if (n.category === target.category) add(n.id, 0.5, `同じ分野「${target.category}」`);
     }
   }
 

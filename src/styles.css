@@ -318,3 +318,13 @@ button.danger { color: var(--danger); }
 }
 .term.is-marked { background: rgba(141, 255, 176, 0.18); color: #b9f5c9; text-decoration-style: solid; text-decoration-color: #8dffb0; }
 .term-star { font-size: 10px; margin-left: 1px; vertical-align: super; }
+
+/* ---- つなぐ相手のおすすめ ---- */
+.recommend p { margin: 2px 0 4px; }
+.recommend-reason { display: block; font-size: 11px; font-weight: 400; color: var(--muted); white-space: normal; }
+.search-results .result-title { white-space: normal; }
+
+/* A案：シートは下部バーの上に出し、下部バーをいつでも押せるようにする */
+.layout-a .sheet { bottom: calc(var(--bottombar-h) + var(--safe-bottom)); padding-bottom: 0; max-height: 50dvh; border-bottom: 1px solid var(--panel-border); }
+.layout-a .sheet.is-expanded { max-height: calc(88dvh - var(--bottombar-h) - var(--safe-bottom)); }
+:root { --bottombar-h: 64px; }
