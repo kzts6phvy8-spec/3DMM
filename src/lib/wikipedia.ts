@@ -131,3 +131,80 @@ export async function fetchWikiArticle(title: string, signal?: AbortSignal): Pro
     return { status: 'error', message: 'Wikipediaに接続できませんでした' };
   }
 }
+
+// ---------------- 記事の中のリンク（ほかの記事になっている言葉） ----------------
+
+/** 記事の中でリンクされている言葉（別の記事のタイトル）を取ってくる。失敗したら空にする */
+export async function fetchWikiLinkTitles(title: string, signal?: AbortSignal): Promise<string[]> {
+  const params = new URLSearchParams({
+    action: 'query', prop: 'links', titles: title, plnamespace: '0', pllimit: 'max',
+    redirects: '1', format: 'json', origin: '*',
+  });
+  try {
+    const res = await fetch(`https://ja.wikipedia.org/w/api.php?${params}`, { signal });
+    if (!res.ok) return [];
+    const d = await res.json();
+    const pages = Object.values(d?.query?.pages ?? {}) as { links?: { title: string }[] }[];
+    // 「マーキュリー (惑星)」のような区別の括弧は外す
+    return pages.flatMap((p) => p.links ?? []).map((l) => l.title.replace(/\s*\(.+\)$/, ''));
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    return [];
+  }
+}
+
+export type Segment = { text: string; term?: string };
+
+/**
+ * 文を「ふつうの文字」と「星にできる言葉」に分ける。
+ * 長い言葉を優先し、重ならないように選ぶ（例：「ロマンス諸語」を「ロマンス」より優先）。
+ */
+export function segmentByTerms(text: string, terms: string[], blockers: string[] = []): Segment[] {
+  const hits: { start: number; end: number; term: string }[] = [];
+  // 星自身の名前（例：フランス語）の部分は、中の言葉（フランス）を押せないようにする
+  for (const b of blockers) {
+    if (b.length < 2) continue;
+    let from = 0;
+    for (;;) {
+      const i = text.indexOf(b, from);
+      if (i < 0) break;
+      hits.push({ start: i, end: i + b.length, term: '' });
+      from = i + b.length;
+    }
+  }
+  for (const term of [...terms].sort((a, b) => b.length - a.length)) {
+    if (term.length < 2) continue;
+    let from = 0;
+    for (;;) {
+      const i = text.indexOf(term, from);
+      if (i < 0) break;
+      const end = i + term.length;
+      if (!hits.some((h) => i < h.end && end > h.start)) hits.push({ start: i, end, term });
+      from = end;
+    }
+  }
+  hits.sort((a, b) => a.start - b.start);
+  const out: Segment[] = [];
+  let pos = 0;
+  for (const h of hits) {
+    if (h.start > pos) out.push({ text: text.slice(pos, h.start) });
+    out.push(h.term ? { text: h.term, term: h.term } : { text: text.slice(h.start, h.end) });
+    pos = h.end;
+  }
+  if (pos < text.length) out.push({ text: text.slice(pos) });
+  return out;
+}
+
+/** 印を付けた言葉を [[言葉]] にした文を作る（各言葉の最初の1か所だけ） */
+export function applyMarks(text: string, terms: string[], marked: Set<string>, blockers: string[] = []): string {
+  const done = new Set<string>();
+  return segmentByTerms(text, terms, blockers)
+    .map((s) => {
+      if (s.term && marked.has(s.term) && !done.has(s.term)) {
+        done.add(s.term);
+        return `[[${s.term}]]`;
+      }
+      return s.text;
+    })
+    .join('');
+}
