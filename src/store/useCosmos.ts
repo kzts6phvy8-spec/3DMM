@@ -100,7 +100,14 @@ interface CosmosState extends Data {
   /** Wikipediaの概要から選んだ文で星を登録する（出典は自動で付く。確認済みにはしない） */
   registerFromWikipedia(
     starId: string,
-    input: { summary: string; sentences: (string | { text: string; topic: string })[]; articleTitle: string; url: string },
+    input: {
+      summary: string;
+      sentences: (string | { text: string; topic: string })[];
+      articleTitle: string;
+      url: string;
+      /** 出典の名前（省略時は「Wikipedia：記事名」） */
+      sourceTitle?: string;
+    },
   ): void;
   /** 名前の一覧のうち、宇宙にまだない言葉を最大limit個、「まだ知らない星」としてもとの星の周りに生やす。生えた数を返す */
   seedStars(starId: string, names: string[], limit: number): number;
@@ -484,9 +491,10 @@ export const useCosmos = create<CosmosState>((set, get) => {
         ),
       };
       const t = nowIso();
-      const existing = get().sources.find((src) => src.url === input.url || src.title === `Wikipedia：${input.articleTitle}`);
+      const sourceTitle = input.sourceTitle ?? `Wikipedia：${input.articleTitle}`;
+      const existing = get().sources.find((src) => src.url === input.url || src.title === sourceTitle);
       const source: Source = existing ?? {
-        id: newId(), type: 'web', title: `Wikipedia：${input.articleTitle}`, url: input.url, author: '', page: '', addedAt: t,
+        id: newId(), type: 'web', title: sourceTitle, url: input.url, author: '', page: '', addedAt: t,
       };
       commit((d) => {
         const baseOrder = Math.max(-1, ...d.statements.filter((st) => st.starId === starId).map((st) => st.order)) + 1;
