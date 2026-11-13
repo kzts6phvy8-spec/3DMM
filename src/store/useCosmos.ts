@@ -21,7 +21,7 @@ import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 /** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
 export type Mode = 'view' | 'connect';
 /** 宇宙の上に重ねて開く画面 */
-export type Panel = 'search' | 'list' | 'more' | 'report' | 'puzzle' | 'compare' | null;
+export type Panel = 'search' | 'list' | 'more' | 'report' | 'puzzle' | 'compare' | 'quiz' | null;
 /** 星の名前の表示量 */
 export type LabelDensity = 'few' | 'normal' | 'many';
 

@@ -253,6 +253,7 @@ export function MorePanel() {
     <PanelFrame title="その他">
       <h3>あそぶ・振り返る</h3>
       <div className="more-actions">
+        <button onClick={() => openPanel('quiz')}>❓ 言葉クイズ（星の種を見つける）</button>
         <button onClick={() => openPanel('puzzle')}>🧩 今日のつながりパズル</button>
         <button onClick={() => openPanel('report')}>📅 今月の発見</button>
         <button onClick={() => openPanel('compare')}>👥 友達の宇宙と重ねる</button>

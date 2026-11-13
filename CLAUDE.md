@@ -160,6 +160,7 @@ src/
   lib/report.ts           今月の発見レポートの計算
   lib/puzzle.ts           毎日のつながりパズル（問題の決め方・最短の道のり）
   lib/compare.ts          友達の宇宙と重ねる（宇宙カードの作成・読み込み・比較）
+  lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/externalSearch.ts   「調べる」ボタン用の外部検索
   storage/repository.ts   保存処理（IndexedDB）と旧形式からの移行
@@ -173,4 +174,5 @@ src/
 
 - 開発サーバー: `npm run dev`
 - ビルド確認: `npm run build`
+- 言葉クイズの問題の作り直し: `python3 scripts/build_quiz.py <Wikipediaの要約.json> src/data/quizWords.json`
 - 初期セット第3弾の作り直し: `python3 scripts/build_vital.py <既存の星の名前一覧.json> src/data/vital.json`（Wikipediaの制限に配慮して待ちながら取得する）
