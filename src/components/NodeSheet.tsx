@@ -87,7 +87,7 @@ function StatementItem({
           {open ? '閉じる' : '詳しく'}
         </button>
       </div>
-      <p className="statement-text">
+      <p className="statement-text" data-statement-id={st.id}>
         <LinkedText text={st.text} byId={byId} />
       </p>
       {open && (

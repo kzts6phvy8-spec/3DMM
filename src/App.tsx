@@ -9,6 +9,7 @@ import { LabelLayer } from './components/LabelLayer';
 import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
 import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
 import { LAYOUT } from './config/layout';
+import { SelectionToStar } from './components/SelectionToStar';
 
 function webglAvailable(): boolean {
   try {
@@ -62,6 +63,7 @@ export default function App() {
       )}
       {panel === 'list' && <ListPanel />}
       {panel === 'more' && <MorePanel />}
+      <SelectionToStar />
       <ErrorToast />
       <UndoToast />
     </div>

@@ -331,3 +331,9 @@ button.danger { color: var(--danger); }
 
 /* 星の名前は押せる（宇宙の操作は名前以外の場所で行う） */
 .star-label { pointer-events: auto; cursor: pointer; }
+
+/* ---- 選んだ言葉を星にする ---- */
+.statement-text { -webkit-user-select: text; user-select: text; }
+.select-star { position: fixed; z-index: 220; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; }
+.select-star.done { background: #1a2140; border: 1px solid var(--accent); border-radius: 14px; padding: 6px 6px 6px 12px; font-size: 13px; }
+.select-star .small-btn.primary { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
