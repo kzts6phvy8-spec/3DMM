@@ -7,6 +7,7 @@ import { RELATION_COLORS, categoryColor, formatDate } from '../lib/util';
 import {
   displayName,
   backlinksOf,
+  parseLinkIds,
   plainText,
   splitText,
 } from '../lib/knowledge';
@@ -90,6 +91,58 @@ function BacklinkList({ backlinks, byId }: { backlinks: Statement[]; byId: Map<s
         <button className="small-btn ghost" onClick={() => setAll(true)}>すべて見る（ほか{backlinks.length - BACKLINKS_SHOWN}件）</button>
       )}
     </>
+  );
+}
+
+const NEIGHBOR_FIRST = 12;
+const NEIGHBOR_STEP = 40;
+
+/**
+ * つながっている星へ、1回押すだけで移れるボタンの列。
+ * 並び：自分で結んだつながり → この星の記述に出てくる星 → この星が出てくる記述の星（同じ星は1回だけ）
+ */
+function NeighborChips({ star, own, backlinks, related, byId }: {
+  star: KnowledgeNode;
+  own: Statement[];
+  backlinks: Statement[];
+  related: { other?: KnowledgeNode }[];
+  byId: Map<string, KnowledgeNode>;
+}) {
+  const navigate = useCosmos((s) => s.navigate);
+  const [limit, setLimit] = useState(NEIGHBOR_FIRST);
+  const list = useMemo(() => {
+    const seen = new Set<string>([star.id]);
+    const out: KnowledgeNode[] = [];
+    const add = (id: string | undefined) => {
+      if (!id || seen.has(id)) return;
+      const n = byId.get(id);
+      if (!n) return;
+      seen.add(id);
+      out.push(n);
+    };
+    for (const r of related) add(r.other?.id);
+    for (const st of own) parseLinkIds(st.text).forEach(add);
+    for (const st of backlinks) add(st.starId);
+    return out;
+  }, [star.id, own, backlinks, related, byId]);
+  if (list.length === 0) return null;
+  const shown = list.slice(0, limit);
+  return (
+    <nav className="neighbors" aria-label="つながっている星">
+      <span className="neighbors-head">つながっている星（{list.length}）</span>
+      <div className="neighbors-list">
+        {shown.map((n) => (
+          <button key={n.id} className={`neighbor-chip${n.status === 'unknown' ? ' is-unknown' : ''}`} onClick={() => navigate(n.id)}>
+            <span className="neighbor-dot" style={{ background: n.status === 'unknown' ? undefined : categoryColor(n.category) }} />
+            {displayName(n)}
+          </button>
+        ))}
+        {list.length > limit && (
+          // 一度に全部出すと重いので、押すたびに少しずつ増やす
+          <button className="neighbor-chip more" onClick={() => setLimit(limit + NEIGHBOR_STEP)}>ほか{list.length - limit}個</button>
+        )}
+      </div>
+    </nav>
   );
 }
 
@@ -285,6 +338,7 @@ export function NodeSheet({
         <div className="sheet-handle" />
         {breadcrumb}
         {header}
+        <NeighborChips key={`nb-${node.id}`} star={node} own={own} backlinks={backlinks} related={related} byId={byId} />
         <div className="sheet-body">
           <p className="muted">
             まだ知らない星です。
@@ -329,6 +383,7 @@ export function NodeSheet({
           <LinkedText text={trivia.text} byId={byId} />
         </p>
       )}
+      <NeighborChips key={`nb-${node.id}`} star={node} own={own} backlinks={backlinks} related={related} byId={byId} />
 
       <div className="sheet-actions">
         {!expanded && <button className="primary" onClick={() => setExpanded(true)}>開く</button>}

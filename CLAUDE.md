@@ -163,6 +163,8 @@ src/
   lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
   lib/plan.ts             利用プラン（無料／有料）。課金の仕組みはまだなく、常に無料
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
+  lib/warmup.ts           手が空いているときに、検索の索引などの重い下ごしらえを先に済ませる
+  lib/labelRegistry.ts    星の名前ラベルの要素（決まった数を使い回す。星が多くても軽く）
   lib/externalSearch.ts   「調べる」ボタン用の外部検索
   storage/repository.ts   保存処理（IndexedDB）と旧形式からの移行
   store/useCosmos.ts      アプリの状態と操作（Zustand）

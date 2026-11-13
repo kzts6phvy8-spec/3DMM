@@ -8,8 +8,8 @@ import { useCosmos } from '../store/useCosmos';
 import type { KnowledgeNode, Vec3 } from '../types';
 import { RELATION_COLORS, starRadius } from '../lib/util';
 import { sceneApi } from '../lib/sceneApi';
-import { labelElements } from '../lib/labelRegistry';
-import { backlinksOf, mentionEdgesFor, parseLinkIds, type MentionEdge } from '../lib/knowledge';
+import { labelPool, labelSlots, labelWidth } from '../lib/labelRegistry';
+import { backlinksOf, displayName, mentionEdgesFor, parseLinkIds, type MentionEdge } from '../lib/knowledge';
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
 
 function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
@@ -57,12 +57,15 @@ function RelationLines() {
         .map((n) => ({ id: `s:${n.id}`, a: n.seedOf!, b: n.id, kind: 'opinion' as const })),
     [nodes, byId],
   );
+  // 線の一覧は、データが変わったときだけ作り直す（星を選ぶたびに3万本以上の線を作り直さないように）
+  const factEdges = useMemo(() => mentions.filter((m) => m.kind === 'fact'), [mentions]);
+  const opinionEdges = useMemo(() => [...mentions.filter((m) => m.kind === 'opinion'), ...seedEdges], [mentions, seedEdges]);
 
   return (
     <>
       {/* 言及のつながり：記述の中のリンクから自動でできる細い線（まとめて1回で描いて軽くする） */}
-      <MentionSegments edges={mentions.filter((m) => m.kind === 'fact')} byId={byId} dashed={false} dim={!!selectedId} />
-      <MentionSegments edges={[...mentions.filter((m) => m.kind === 'opinion'), ...seedEdges]} byId={byId} dashed dim={!!selectedId} />
+      <MentionSegments edges={factEdges} byId={byId} dashed={false} dim={!!selectedId} />
+      <MentionSegments edges={opinionEdges} byId={byId} dashed dim={!!selectedId} />
       {/* 選んだ星の言及のつながりだけ、太く明るく描く */}
       {selectedId &&
         mentions
@@ -150,20 +153,25 @@ function ViewShift() {
 }
 
 const MAX_LABELS = 45;
-/** ラベルの見た目を、変わったときだけ書き換える（毎フレーム全部書き換えると重いため） */
-const labelState = new WeakMap<HTMLDivElement, string>();
-function hide(el: HTMLDivElement) {
-  if (labelState.get(el) === 'hidden') return;
-  el.style.visibility = 'hidden';
-  labelState.set(el, 'hidden');
+/** ラベルの要素に、星の名前と位置を書き込む（前と同じなら何もしない。画面の再計算を減らすため） */
+function assign(el: HTMLDivElement, id: string, text: string, cls: string, transform: string, opacity: string) {
+  const cur = labelSlots.get(el);
+  const style = transform + opacity;
+  if (cur && cur.id === id && cur.text === text && cur.cls === cls && cur.style === style) return;
+  if (!cur || cur.text !== text) el.textContent = text;
+  if (!cur || cur.cls !== cls) el.className = cls;
+  if (!cur || cur.style !== style) {
+    el.style.transform = transform;
+    el.style.opacity = opacity;
+  }
+  if (!cur || cur.id === '') el.style.visibility = 'visible';
+  labelSlots.set(el, { id, text, cls, style });
 }
-function show(el: HTMLDivElement, transform: string, opacity: string) {
-  const key = transform + opacity;
-  if (labelState.get(el) === key) return;
-  el.style.visibility = 'visible';
-  el.style.transform = transform;
-  el.style.opacity = opacity;
-  labelState.set(el, key);
+function release(el: HTMLDivElement) {
+  const cur = labelSlots.get(el);
+  if (cur && cur.id === '') return;
+  el.style.visibility = 'hidden';
+  labelSlots.set(el, { id: '', text: cur?.text ?? '', cls: cur?.cls ?? '', style: cur?.style ?? '' });
 }
 
 /** 毎フレーム、星の3D座標を画面上の位置に変換してラベルを動かす */
@@ -184,15 +192,13 @@ function LabelProjector() {
     return set;
   }, [selectedId, statements, seedCount]);
 
-  // ラベルの幅は、文字が変わったときだけ測る（毎フレーム測ると重いため）
-  const widths = useMemo(() => new Map<string, { text: string; w: number }>(), []);
 
   const controls = useThree((st) => st.controls) as OrbitControlsImpl | null;
   // 前のコマと同じ見え方なら、ラベルの計算を省く（星が1万個あっても、止まっているときは軽く）
   const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown }), []);
   useFrame(({ camera, size }) => {
-    const { nodes, labelDensity } = useCosmos.getState();
-    const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}`;
+    const { nodes, labelDensity, connectFromId } = useCosmos.getState();
+    const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}|${connectFromId}`;
     if (key === last.key && nodes === last.nodes && near === last.near) return;
     last.key = key;
     last.nodes = nodes;
@@ -201,11 +207,9 @@ function LabelProjector() {
     const d0 = controls ? camera.position.distanceTo(controls.target) : 40;
     // 名前の表示量の設定（少なめ／普通／多め）
     const densityBonus = labelDensity === 'few' ? -10 : labelDensity === 'many' ? 12 : 0;
-    type Cand = { el: HTMLDivElement; x: number; y: number; w: number; opacity: number; priority: number };
+    type Cand = { node: KnowledgeNode; text: string; x: number; y: number; w: number; opacity: number; priority: number };
     const cands: Cand[] = [];
     for (const n of nodes) {
-      const el = labelElements.get(n.id);
-      if (!el) continue;
       const unknown = n.status === 'unknown';
       const r = unknown ? starRadius(1) * 0.75 : starRadius(n.importance);
       v.set(n.position[0], n.position[1] - r - 0.35, n.position[2]);
@@ -219,28 +223,19 @@ function LabelProjector() {
         opacity = Math.max(0, Math.min(1, (limit - dist) / (d0 * 0.12)));
       }
       // 名前を出さない遠い星は、画面上の位置を計算しない（重い計算を減らす）
-      if (opacity <= 0.02) {
-        hide(el);
-        continue;
-      }
+      if (opacity <= 0.02) continue;
       v.project(camera);
       const sx = ((v.x + 1) / 2) * size.width;
       const sy = ((1 - v.y) / 2) * size.height;
       // 画面の外・後ろ・薄すぎるものは候補にしない
-      if (v.z > 1 || v.z < -1 || opacity <= 0.02 || sx < -80 || sx > size.width + 80 || sy < -20 || sy > size.height + 20) {
-        hide(el);
-        continue;
-      }
-      let cached = widths.get(n.id);
-      if (!cached || cached.text !== el.textContent) {
-        cached = { text: el.textContent ?? '', w: el.offsetWidth || 60 };
-        widths.set(n.id, cached);
-      }
+      if (v.z > 1 || v.z < -1 || sx < -80 || sx > size.width + 80 || sy < -20 || sy > size.height + 20) continue;
+      const text = displayName(n);
       cands.push({
-        el,
+        node: n,
+        text,
         x: sx,
         y: sy,
-        w: cached.w,
+        w: labelWidth(text),
         opacity,
         // 選んだ星の周り → 重要な星 → 手前の星 の順に場所を取る
         priority: (near.has(n.id) ? 1000 : 0) + (unknown ? 0 : n.importance * 20) - dist,
@@ -253,17 +248,36 @@ function LabelProjector() {
       { x1: -1e4, x2: 1e4, y1: -1e4, y2: 78 },
       { x1: -1e4, x2: 1e4, y1: size.height - 84, y2: 1e4 },
     ];
+    const chosen: Cand[] = [];
     for (const c of cands) {
       const box = { x1: c.x - c.w / 2 - 2, x2: c.x + c.w / 2 + 2, y1: c.y - 11, y2: c.y + 11 };
-      // 一度に出す名前は最大70個まで（多すぎると読めず、重くもなる）
-      const hit = placed.length > MAX_LABELS || placed.some((p) => box.x1 < p.x2 && box.x2 > p.x1 && box.y1 < p.y2 && box.y2 > p.y1);
-      if (hit) {
-        hide(c.el);
-        continue;
-      }
+      // 一度に出す名前は最大45個まで（多すぎると読めず、重くもなる）
+      if (placed.length > MAX_LABELS || chosen.length >= labelPool.length) break;
+      if (placed.some((p) => box.x1 < p.x2 && box.x2 > p.x1 && box.y1 < p.y2 && box.y2 > p.y1)) continue;
       placed.push(box);
-      show(c.el, `translate3d(${Math.round(c.x)}px, ${Math.round(c.y)}px, 0) translate(-50%, -50%)`, c.opacity.toFixed(2));
+      chosen.push(c);
     }
+    // 前のコマと同じ星には同じ要素を使う（文字の書き換えを減らす）
+    const prevOwner = new Map<string, HTMLDivElement>();
+    for (const el of labelPool) {
+      const id = labelSlots.get(el)?.id;
+      if (id) prevOwner.set(id, el);
+    }
+    const used = new Set<HTMLDivElement>();
+    const rest: Cand[] = [];
+    const put = (el: HTMLDivElement, c: Cand) => {
+      used.add(el);
+      const cls = `star-label${c.node.status === 'unknown' ? ' is-unknown' : ''}${c.node.id === selectedId || c.node.id === connectFromId ? ' is-selected' : ''}`;
+      assign(el, c.node.id, c.text, cls, `translate3d(${Math.round(c.x)}px, ${Math.round(c.y)}px, 0) translate(-50%, -50%)`, c.opacity.toFixed(2));
+    };
+    for (const c of chosen) {
+      const el = prevOwner.get(c.node.id);
+      if (el) put(el, c);
+      else rest.push(c);
+    }
+    const free = labelPool.filter((el) => !used.has(el));
+    rest.forEach((c, i) => put(free[i], c));
+    for (const el of free.slice(rest.length)) release(el);
   });
   return null;
 }
