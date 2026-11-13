@@ -4,6 +4,7 @@ import { clearError, useCosmos } from '../store/useCosmos';
 import { categoryColor } from '../lib/util';
 import { searchNodes } from '../lib/search';
 import { displayName } from '../lib/knowledge';
+import { suggestConnections } from '../lib/suggest';
 import { LAYOUT } from '../config/layout';
 
 export function TopBar({ onAdd }: { onAdd: () => void }) {
@@ -83,6 +84,14 @@ export function ModeBanner() {
     () => searchNodes(nodes.filter((n) => n.id !== connectFromId), query),
     [nodes, connectFromId, query],
   );
+  // つなぐ相手のおすすめ（検索欄が空のときに出す）
+  const statements = useCosmos((s) => s.statements);
+  const relations = useCosmos((s) => s.relations);
+  const recommended = useMemo(
+    () => (mode === 'connect' && connectFrom ? suggestConnections(connectFrom, nodes, statements, relations, 5, true) : []),
+    [mode, connectFrom, nodes, statements, relations],
+  );
+  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
   if (mode === 'view') return null;
   const text = connectFrom
@@ -106,6 +115,28 @@ export function ModeBanner() {
             aria-label="つなぐ星を検索"
             enterKeyHint="search"
           />
+          {!query && recommended.length > 0 && (
+            <div className="recommend">
+              <p className="muted small">おすすめ（つながりそうな星）</p>
+              <ul className="search-results">
+                {recommended.map((r) => {
+                  const n = byId.get(r.starId);
+                  if (!n) return null;
+                  return (
+                    <li key={r.starId}>
+                      <button onClick={() => tapNode(n.id)}>
+                        <span className="dot" style={{ background: categoryColor(n.category) }} />
+                        <span className="result-title">
+                          {displayName(n)}
+                          <span className="recommend-reason">{r.reasons[0]}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           {query && (
             <ul className="search-results">
               {candidates.length === 0 && <li className="muted empty">見つかりませんでした</li>}

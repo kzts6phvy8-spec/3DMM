@@ -166,7 +166,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
       try {
         let data = await repo.load();
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
-        const STARTER_FLAG = 'starter-v2-added';
+        const STARTER_FLAG = 'starter-v3-added';
         if (!data) {
           data = createSampleData();
           await repo.save(data);
