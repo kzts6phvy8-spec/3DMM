@@ -15,6 +15,7 @@ import {
 } from '../lib/knowledge';
 import { SEARCH_SITES, openSearch } from '../lib/externalSearch';
 import { WikipediaPreview } from './WikipediaPreview';
+import { SuggestionList } from './SuggestionList';
 
 /** 本文中のリンクを押せる形で表示する */
 function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeNode> }) {
@@ -344,6 +345,8 @@ export function NodeSheet({
               </li>
             ))}
           </ul>
+
+          <SuggestionList key={node.id} star={node} />
 
           {backlinks.length > 0 && (
             <>
