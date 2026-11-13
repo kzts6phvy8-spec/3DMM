@@ -13,6 +13,7 @@ import type {
 } from '../types';
 import { indexedDbRepository, type CosmosRepository } from '../storage/repository';
 import { createSampleData } from '../sampleData';
+import { mergeDataset, removeStarter } from '../data/mergeDataset';
 import { newId, nowIso } from '../lib/util';
 import { parseLinkIds } from '../lib/knowledge';
 
@@ -73,6 +74,10 @@ interface CosmosState extends Data {
   cancelConnection(): void;
 
   undoLast(): void;
+  /** 初期セットを今のデータに追加する。追加した星の数を返す */
+  addStarterSet(): number;
+  /** 初期セットをまとめて削除する（自分で記述を足した星は残す）。削除した星の数を返す */
+  removeStarterSet(): number;
 }
 
 const repo: CosmosRepository = indexedDbRepository;
@@ -201,7 +206,8 @@ export const useCosmos = create<CosmosState>((set, get) => {
     updateNode(id, input) {
       // まだ知らない星も、編集して保存したら「登録済み」になる
       commit((d) => ({
-        nodes: d.nodes.map((n) => (n.id === id ? { ...n, ...input, status: 'known', updatedAt: nowIso() } : n)),
+        // 自分で編集した初期セットの星は「自分の星」として扱う（まとめて削除の対象から外す）
+        nodes: d.nodes.map((n) => (n.id === id ? { ...n, ...input, status: 'known', origin: n.origin === 'starter' ? 'user' : n.origin, updatedAt: nowIso() } : n)),
       }));
     },
 
@@ -349,6 +355,27 @@ export const useCosmos = create<CosmosState>((set, get) => {
 
     cancelConnection() {
       set({ pendingConnection: null });
+    },
+
+    addStarterSet() {
+      const before = snapshotOf(get());
+      const { data, added } = mergeDataset(before, createSampleData());
+      set({ ...data, undo: { label: `初期セットを追加しました（${added}個）`, snapshot: before, expiresAt: Date.now() + 8000 } });
+      persist();
+      return added;
+    },
+
+    removeStarterSet() {
+      const before = snapshotOf(get());
+      const { data, removed } = removeStarter(before);
+      set((s) => ({
+        ...data,
+        selectedId: data.nodes.some((n) => n.id === s.selectedId) ? s.selectedId : null,
+        trail: [],
+        undo: { label: `初期セットを削除しました（${removed}個）`, snapshot: before, expiresAt: Date.now() + 8000 },
+      }));
+      persist();
+      return removed;
     },
 
     undoLast() {

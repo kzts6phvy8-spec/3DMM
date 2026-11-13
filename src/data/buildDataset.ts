@@ -16,7 +16,10 @@ export interface StatementSpec {
   text: string;
   kind?: 'fact' | 'opinion';
   topic?: string;
-  /** SourceSpec の key */
+  /**
+   * SourceSpec の key（他の星の記事は `wp-その星のキー`）。
+   * 省略した事実の記述には、その星のWikipedia記事が自動で付く。空配列なら出典なし。
+   */
   sources?: string[];
 }
 
@@ -31,6 +34,8 @@ export interface StarSpec {
   summary: string;
   importance?: number;
   position?: Vec3;
+  /** この星の出典にするWikipedia（日本語版）の記事名。出典 `wp-キー` が自動で作られる */
+  wp?: string;
   statements: StatementSpec[];
 }
 
@@ -47,7 +52,7 @@ export interface DatasetSpec {
   origin: KnowledgeNode['origin'];
   /** 作成日時として記録する値 */
   createdAt: string;
-  sources: SourceSpec[];
+  sources?: SourceSpec[];
   stars: StarSpec[];
   relations?: RelationSpec[];
 }
@@ -58,7 +63,18 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
   const t = spec.createdAt;
   const idOf = (key: string) => `${spec.origin}-${key}`;
 
-  const sources: Source[] = spec.sources.map((s) => ({
+  const sourceSpecs: SourceSpec[] = [
+    ...(spec.sources ?? []),
+    ...spec.stars
+      .filter((s) => s.wp)
+      .map((s) => ({
+        key: `wp-${s.key}`,
+        type: 'web' as const,
+        title: `Wikipedia：${s.wp}`,
+        url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(s.wp!)}`,
+      })),
+  ];
+  const sources: Source[] = sourceSpecs.map((s) => ({
     id: idOf(`src-${s.key}`),
     type: s.type,
     title: s.title,
@@ -68,10 +84,11 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
     addedAt: t,
   }));
   const sourceId = (key: string) => {
-    if (!spec.sources.some((s) => s.key === key)) throw new Error(`出典 ${key} がありません`);
+    if (!sourceSpecs.some((s) => s.key === key)) throw new Error(`出典 ${key} がありません`);
     return idOf(`src-${key}`);
   };
 
+  const layout = clusterLayout(spec.stars);
   const nodes: KnowledgeNode[] = spec.stars.map((s, i) => ({
     id: idOf(s.key),
     status: 'known',
@@ -83,7 +100,7 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
     tags: s.tags ?? [],
     summary: s.summary,
     importance: s.importance ?? 3,
-    position: s.position ?? fallbackPosition(i, spec.stars.length),
+    position: s.position ?? layout[i],
     origin: spec.origin,
     createdAt: t,
     updatedAt: t,
@@ -138,7 +155,7 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
         text: st.text.replace(NAME_LINK_RE, (_, name: string) => `[[@${resolve(name, star)}]]`),
         kind: st.kind ?? 'fact',
         topic: st.topic ?? '',
-        sourceIds: (st.sources ?? []).map(sourceId),
+        sourceIds: (st.sources ?? (st.kind !== 'opinion' && s.wp ? [`wp-${s.key}`] : [])).map(sourceId),
         manualCheck: null, // AIが用意したものは「確認済み」にしない
         checkNote: '',
         order,
@@ -163,11 +180,60 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
   return { version: 2, nodes, statements, sources, relations };
 }
 
-/** 座標の指定がない星を、球面上に散らして置く */
-function fallbackPosition(i: number, total: number): Vec3 {
-  const y = 1 - (2 * (i + 0.5)) / Math.max(total, 1);
-  const r = Math.sqrt(1 - y * y);
-  const theta = i * 2.399;
-  const radius = 6 + total * 0.08;
-  return [Math.cos(theta) * r * radius, y * radius, Math.sin(theta) * r * radius];
+/** 文字列から決まった疑似乱数を作る（毎回同じ配置にするため） */
+function seeded(text: string): () => number {
+  let h = 2166136261;
+  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 座標の指定がない星を、カテゴリーごとのまとまり（星団）に分けて置く。
+ * 同じ分野の星は近くに、違う分野は離れた場所に集まる。
+ */
+function clusterLayout(stars: StarSpec[]): Vec3[] {
+  const categories = [...new Set(stars.map((s) => s.category))];
+  const centers = new Map<string, Vec3>();
+  categories.forEach((c, i) => {
+    // カテゴリーの中心を球面上に均等に並べる
+    const y = categories.length === 1 ? 0 : 1 - (2 * i) / (categories.length - 1);
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const theta = i * 2.399;
+    const R = 9 + categories.length * 0.6;
+    centers.set(c, [Math.cos(theta) * r * R, y * R * 0.7, Math.sin(theta) * r * R]);
+  });
+  const pos: Vec3[] = stars.map((s) => {
+    if (s.position) return s.position;
+    const rand = seeded(s.key);
+    const c = centers.get(s.category)!;
+    return [c[0] + (rand() - 0.5) * 7, c[1] + (rand() - 0.5) * 5, c[2] + (rand() - 0.5) * 7];
+  });
+  // 近すぎる星を少しずつ押し離す
+  for (let iter = 0; iter < 40; iter++) {
+    for (let i = 0; i < pos.length; i++) {
+      for (let j = i + 1; j < pos.length; j++) {
+        const d = [pos[j][0] - pos[i][0], pos[j][1] - pos[i][1], pos[j][2] - pos[i][2]];
+        const len = Math.hypot(d[0], d[1], d[2]) || 0.01;
+        if (len >= 2.2) continue;
+        const push = (2.2 - len) / 2 / len;
+        for (let k = 0; k < 3; k++) {
+          if (!stars[i].position) pos[i][k] -= d[k] * push;
+          if (!stars[j].position) pos[j][k] += d[k] * push;
+        }
+      }
+    }
+  }
+  // 全体の中心を原点にそろえる（カメラが宇宙の中心を向くように）
+  const free = pos.filter((_, i) => !stars[i].position);
+  if (free.length) {
+    const c = [0, 1, 2].map((k) => free.reduce((sum, p) => sum + p[k], 0) / free.length);
+    pos.forEach((p, i) => {
+      if (!stars[i].position) for (let k = 0; k < 3; k++) p[k] -= c[k];
+    });
+  }
+  return pos;
 }

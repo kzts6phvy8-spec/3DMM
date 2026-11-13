@@ -9,7 +9,7 @@ import type { KnowledgeNode, Vec3 } from '../types';
 import { RELATION_COLORS, categoryColor, starRadius } from '../lib/util';
 import { sceneApi } from '../lib/sceneApi';
 import { labelElements } from '../lib/labelRegistry';
-import { mentionEdges, parseLinkIds } from '../lib/knowledge';
+import { mentionEdges, parseLinkIds, type MentionEdge } from '../lib/knowledge';
 
 /** 指が少しぶれても「タップ」とみなす移動量（ピクセル） */
 const TAP_TOLERANCE = 10;
@@ -139,9 +139,37 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
         onPointerCancel={endDrag}
       >
         <sphereGeometry args={[Math.max(r * 2.2, 0.85), 12, 12]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial visible={false} />
       </mesh>
     </group>
+  );
+}
+
+function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
+  const geometry = useMemo(() => {
+    const pts: number[] = [];
+    for (const m of edges) {
+      const a = byId.get(m.a);
+      const b = byId.get(m.b);
+      if (a && b) pts.push(...a.position, ...b.position);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, [edges, byId]);
+  const ref = useRef<THREE.LineSegments>(null);
+  useEffect(() => {
+    if (dashed) ref.current?.computeLineDistances();
+    return () => geometry.dispose();
+  }, [geometry, dashed]);
+  return (
+    <lineSegments ref={ref} geometry={geometry}>
+      {dashed ? (
+        <lineDashedMaterial color="#c9d6ff" transparent opacity={dim ? 0.06 : 0.16} dashSize={0.25} gapSize={0.2} depthWrite={false} />
+      ) : (
+        <lineBasicMaterial color="#c9d6ff" transparent opacity={dim ? 0.06 : 0.18} depthWrite={false} />
+      )}
+    </lineSegments>
   );
 }
 
@@ -155,28 +183,21 @@ function RelationLines() {
 
   return (
     <>
-      {/* 言及のつながり：記述の中のリンクから自動でできる細い線 */}
-      {mentions.map((m) => {
-        const a = byId.get(m.a);
-        const b = byId.get(m.b);
-        if (!a || !b) return null;
-        const active = selectedId === a.id || selectedId === b.id;
-        const toUnknown = a.status === 'unknown' || b.status === 'unknown';
-        return (
-          <Line
-            key={m.id}
-            points={[a.position, b.position]}
-            color="#c9d6ff"
-            lineWidth={active ? 1.4 : 0.8}
-            transparent
-            opacity={(active ? 0.55 : selectedId ? 0.08 : 0.2) * (toUnknown ? 0.6 : 1)}
-            dashed={m.kind === 'opinion'}
-            dashSize={0.25}
-            gapSize={0.2}
-            toneMapped={false}
-          />
-        );
-      })}
+      {/* 言及のつながり：記述の中のリンクから自動でできる細い線（まとめて1回で描いて軽くする） */}
+      <MentionSegments edges={mentions.filter((m) => m.kind === 'fact')} byId={byId} dashed={false} dim={!!selectedId} />
+      <MentionSegments edges={mentions.filter((m) => m.kind === 'opinion')} byId={byId} dashed dim={!!selectedId} />
+      {/* 選んだ星の言及のつながりだけ、太く明るく描く */}
+      {selectedId &&
+        mentions
+          .filter((m) => m.a === selectedId || m.b === selectedId)
+          .map((m) => {
+            const a = byId.get(m.a)!;
+            const b = byId.get(m.b)!;
+            return (
+              <Line key={m.id} points={[a.position, b.position]} color="#c9d6ff" lineWidth={1.4} transparent opacity={0.6}
+                dashed={m.kind === 'opinion'} dashSize={0.25} gapSize={0.2} toneMapped={false} />
+            );
+          })}
       {/* 意味のつながり：自分で結んだ明るい線（理由が意見なら点線） */}
       {relations.map((r) => {
         const a = byId.get(r.sourceNodeId);
@@ -269,8 +290,13 @@ function LabelProjector() {
     return set;
   }, [selectedId, statements]);
 
+  // ラベルの幅は、文字が変わったときだけ測る（毎フレーム測ると重いため）
+  const widths = useMemo(() => new Map<string, { text: string; w: number }>(), []);
+
   useFrame(({ camera, size }) => {
     const { nodes } = useCosmos.getState();
+    type Cand = { el: HTMLDivElement; x: number; y: number; w: number; opacity: number; priority: number };
+    const cands: Cand[] = [];
     for (const n of nodes) {
       const el = labelElements.get(n.id);
       if (!el) continue;
@@ -279,22 +305,45 @@ function LabelProjector() {
       v.set(n.position[0], n.position[1] - r - 0.35, n.position[2]);
       const dist = camera.position.distanceTo(v);
       v.project(camera);
-      if (v.z > 1 || v.z < -1) {
+      // 遠くからは重要な星の名前だけ見せ、近づくほど多くの名前が見えるようにする
+      let opacity: number;
+      if (near.has(n.id)) opacity = 1;
+      else if (unknown) opacity = Math.max(0, Math.min(0.8, (11 - dist) / 3));
+      else opacity = Math.max(0, Math.min(1, (22 + n.importance * 6 - dist) / 4));
+      if (v.z > 1 || v.z < -1 || opacity <= 0.02) {
         el.style.visibility = 'hidden';
         continue;
       }
-      // まだ知らない星のラベルは、近づいたとき・関係する星を選んだときだけ見せる（重なり防止）
-      let opacity = Math.max(0.3, Math.min(1, 1.4 - dist / 40));
-      if (unknown && !near.has(n.id)) opacity = Math.max(0, Math.min(0.8, (11 - dist) / 3));
-      if (opacity <= 0.02) {
-        el.style.visibility = 'hidden';
+      let cached = widths.get(n.id);
+      if (!cached || cached.text !== el.textContent) {
+        cached = { text: el.textContent ?? '', w: el.offsetWidth || 60 };
+        widths.set(n.id, cached);
+      }
+      cands.push({
+        el,
+        x: ((v.x + 1) / 2) * size.width,
+        y: ((1 - v.y) / 2) * size.height,
+        w: cached.w,
+        opacity,
+        // 選んだ星の周り → 重要な星 → 手前の星 の順に場所を取る
+        priority: (near.has(n.id) ? 1000 : 0) + (unknown ? 0 : n.importance * 20) - dist,
+      });
+    }
+    // 重なるラベルは、優先度の低いほうを隠す
+    cands.sort((a, b) => b.priority - a.priority);
+    // 画面上部のバーの下にはラベルを出さない
+    const placed: { x1: number; x2: number; y1: number; y2: number }[] = [{ x1: -1e4, x2: 1e4, y1: -1e4, y2: 78 }];
+    for (const c of cands) {
+      const box = { x1: c.x - c.w / 2 - 2, x2: c.x + c.w / 2 + 2, y1: c.y - 11, y2: c.y + 11 };
+      const hit = placed.some((p) => box.x1 < p.x2 && box.x2 > p.x1 && box.y1 < p.y2 && box.y2 > p.y1);
+      if (hit) {
+        c.el.style.visibility = 'hidden';
         continue;
       }
-      const x = ((v.x + 1) / 2) * size.width;
-      const y = ((1 - v.y) / 2) * size.height;
-      el.style.visibility = 'visible';
-      el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
-      el.style.opacity = String(opacity);
+      placed.push(box);
+      c.el.style.visibility = 'visible';
+      c.el.style.transform = `translate3d(${c.x}px, ${c.y}px, 0) translate(-50%, -50%)`;
+      c.el.style.opacity = String(c.opacity);
     }
   });
   return null;
@@ -356,7 +405,7 @@ export function CosmosScene() {
   return (
     <Canvas
       className="cosmos-canvas"
-      camera={{ position: [0, 2, 14], fov: 55, near: 0.1, far: 500 }}
+      camera={{ position: [0, 10, 44], fov: 55, near: 0.1, far: 500 }}
       dpr={[1, 2]}
       onPointerMissed={(e) => {
         // 何もない場所をタップしたら選択解除（ドラッグで視点を回した場合は除く）
@@ -364,13 +413,13 @@ export function CosmosScene() {
       }}
     >
       <color attach="background" args={['#05060f']} />
-      <fog attach="fog" args={['#05060f', 30, 90]} />
+      <fog attach="fog" args={['#05060f', 45, 120]} />
       <Stars radius={90} depth={50} count={2500} factor={4} saturation={0.3} fade speed={0.4} />
       <RelationLines />
       {nodes.map((n) => (
         <StarNode key={n.id} node={n} connected={connectedIds.has(n.id)} />
       ))}
-      <OrbitControls makeDefault enableDamping dampingFactor={0.08} rotateSpeed={0.7} minDistance={2} maxDistance={60} />
+      <OrbitControls makeDefault enableDamping dampingFactor={0.08} rotateSpeed={0.7} minDistance={2} maxDistance={90} />
       <FocusRig />
       <ViewShift />
       <LabelProjector />
