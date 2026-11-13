@@ -14,6 +14,7 @@ import { indexedDbRepository, type CosmosRepository } from '../storage/repositor
 import { createSampleData } from '../sampleData';
 import { mergeDataset, removeStarter } from '../data/mergeDataset';
 import { newId, nowIso } from '../lib/util';
+import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
 import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 
 /** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
@@ -57,10 +58,16 @@ interface CosmosState extends Data {
   labelDensity: LabelDensity;
   /** 長押しで動かしている星 */
   draggingId: string | null;
+  /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
+  engagement: EngagementMap;
   /** 直前の削除を「元に戻す」ための控え */
   undo: { label: string; snapshot: Data; expiresAt: number } | null;
 
   init(): Promise<void>;
+  /** 星を開いたことを記録する */
+  recordView(id: string): void;
+  /** バックアップにあった関わり方の記録を、今の記録に合わせる（減らさない） */
+  mergeEngagementFrom(map: EngagementMap): void;
   select(id: string | null): void;
   setExpanded(v: boolean): void;
   /** リンクなどで別の星へ移動する（道のりに記録し、視点も動かす） */
@@ -173,9 +180,15 @@ export const useCosmos = create<CosmosState>((set, get) => {
     panel: null,
     labelDensity: loadDensity(),
     draggingId: null,
+    engagement: {},
     undo: null,
 
     async init() {
+      try {
+        set({ engagement: await repo.loadEngagement() });
+      } catch {
+        // 関わり方の記録が読めなくても、知識のデータは使えるようにする
+      }
       try {
         let data = await repo.load();
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
@@ -229,6 +242,20 @@ export const useCosmos = create<CosmosState>((set, get) => {
           error: `端末内のデータを読み込めませんでした。変更は保存されない可能性があります（${e instanceof Error ? e.message : String(e)}）`,
         });
       }
+    },
+
+    recordView(id) {
+      const engagement = addView(get().engagement, id);
+      set({ engagement });
+      repo.saveEngagement(engagement).catch((e: unknown) => {
+        set({ error: `関わり方の記録を保存できませんでした: ${e instanceof Error ? e.message : String(e)}` });
+      });
+    },
+
+    mergeEngagementFrom(map) {
+      const engagement = mergeEngagement(get().engagement, map);
+      set({ engagement });
+      repo.saveEngagement(engagement).catch(() => undefined);
     },
 
     select(id) {
@@ -582,3 +609,8 @@ export const useCosmos = create<CosmosState>((set, get) => {
 export function clearError() {
   useCosmos.setState({ error: null });
 }
+
+// 星が選ばれたら（タップ・リンク・検索など、どの方法でも）「開いた」と記録する
+useCosmos.subscribe((s, prev) => {
+  if (s.loaded && s.selectedId && s.selectedId !== prev.selectedId) s.recordView(s.selectedId);
+});
