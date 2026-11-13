@@ -98,7 +98,10 @@ interface CosmosState extends Data {
 
   undoLast(): void;
   /** Wikipediaの概要から選んだ文で星を登録する（出典は自動で付く。確認済みにはしない） */
-  registerFromWikipedia(starId: string, input: { summary: string; sentences: string[]; articleTitle: string; url: string }): void;
+  registerFromWikipedia(
+    starId: string,
+    input: { summary: string; sentences: (string | { text: string; topic: string })[]; articleTitle: string; url: string },
+  ): void;
   /** 初期セットを今のデータに追加する。追加した星の数を返す */
   addStarterSet(): number;
   /** 初期セットをまとめて削除する（自分で記述を足した星は残す）。削除した星の数を返す */
@@ -450,8 +453,9 @@ export const useCosmos = create<CosmosState>((set, get) => {
       };
       commit((d) => {
         const baseOrder = Math.max(-1, ...d.statements.filter((st) => st.starId === starId).map((st) => st.order)) + 1;
-        const added: Statement[] = input.sentences.map((text, i) => ({
-          id: newId(), starId, text, kind: 'fact', topic: '', sourceIds: [source.id], manualCheck: null, checkNote: '',
+        const added: Statement[] = input.sentences.map((item, i) => ({
+          id: newId(), starId, text: typeof item === 'string' ? item : item.text, kind: 'fact',
+          topic: typeof item === 'string' ? '' : item.topic, sourceIds: [source.id], manualCheck: null, checkNote: '',
           order: baseOrder + i, createdAt: t, updatedAt: t,
         }));
         return {

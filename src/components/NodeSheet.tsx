@@ -16,6 +16,7 @@ import {
 import { SEARCH_SITES, openSearch } from '../lib/externalSearch';
 import { WikipediaPreview } from './WikipediaPreview';
 import { SuggestionList } from './SuggestionList';
+import { WikiStatementSuggestions } from './WikiStatementSuggestions';
 
 /** 本文中のリンクを押せる形で表示する */
 function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeNode> }) {
@@ -333,16 +334,19 @@ export function NodeSheet({
             <button className="small-btn" onClick={() => onEditStatement(node.id, null)}>＋ 記述を追加</button>
           </div>
           {own.length === 0 && <p className="muted">まだ記述がありません。事実や意見を1文ずつ追加できます。</p>}
-          {[...groups.entries()].map(([topic, list]) => (
-            <div key={topic || '_'}>
-              {topic && <h4 className="topic-head">{topic === '雑学' ? '✦ 雑学' : topic}</h4>}
-              <ul className="statements">
-                {list.map((st) => (
-                  <StatementItem key={st.id} st={st} star={node} byId={byId} onEdit={() => onEditStatement(node.id, st.id)} />
-                ))}
-              </ul>
-            </div>
-          ))}
+          <WikiStatementSuggestions star={node} />
+          <div className="statement-groups">
+            {[...groups.entries()].map(([topic, list]) => (
+              <div key={topic || '_'}>
+                {topic && <h4 className="topic-head">{topic === '雑学' ? '✦ 雑学' : topic}</h4>}
+                <ul className="statements">
+                  {list.map((st) => (
+                    <StatementItem key={st.id} st={st} star={node} byId={byId} onEdit={() => onEditStatement(node.id, st.id)} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
 
           <h3>意味のつながり（{related.length}）</h3>
           {related.length === 0 && <p className="muted">「⟷ つなぐ」で他の星と結べます。</p>}
