@@ -104,6 +104,8 @@ interface CosmosState extends Data {
   ): void;
   /** 名前の一覧のうち、宇宙にまだない言葉を最大limit個、「まだ知らない星」としてもとの星の周りに生やす。生えた数を返す */
   seedStars(starId: string, names: string[], limit: number): number;
+  /** 記述の中の言葉をリンクにする（宇宙にない言葉は「まだ知らない星」を作る）。リンク先の星IDを返す */
+  linkWordInStatement(statementId: string, word: string): string | null;
   /** この星に使うWikipediaの記事を覚える */
   setWikiTitle(starId: string, title: string | undefined): void;
   /** 初期セットを今のデータに追加する。追加した星の数を返す */
@@ -535,6 +537,25 @@ export const useCosmos = create<CosmosState>((set, get) => {
       });
       if (created.length) commit((d) => ({ nodes: [...d.nodes, ...created] }));
       return created.length;
+    },
+
+    linkWordInStatement(statementId, word) {
+      const w = word.trim();
+      const st = get().statements.find((x) => x.id === statementId);
+      if (!st || w.length < 1) return null;
+      // すでにリンクになっている部分（[[@ID]]）の外から、最初に出てくる場所を探す
+      const parts = st.text.split(/(\[\[@[^\]]+\]\])/);
+      const idx = parts.findIndex((p) => !p.startsWith('[[@') && p.includes(w));
+      if (idx < 0) return null;
+      const { nodes } = get();
+      const target =
+        nodes.find((n) => displayName(n) === w) ?? nodes.find((n) => n.title === w) ?? nodes.find((n) => n.aliases.includes(w)) ?? get().ensureStar(w, st.starId);
+      if (target.id === st.starId) return null; // 自分自身へのリンクは作らない
+      parts[idx] = parts[idx].replace(w, linkToken(target.id));
+      const text = parts.join('');
+      // 文の中身は変わらない（リンクを付けただけ）ので、確認状態はそのまま保つ
+      commit((d) => ({ statements: d.statements.map((x) => (x.id === statementId ? { ...x, text, updatedAt: nowIso() } : x)) }));
+      return target.id;
     },
 
     setWikiTitle(starId, title) {
