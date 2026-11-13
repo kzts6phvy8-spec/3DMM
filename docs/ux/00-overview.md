@@ -7,7 +7,7 @@ Jesse James Garrett の「UXの5段階モデル」に沿って、下の層から
 |---|---|---|---|
 | 5 | 表層（Surface） | どう見えるか（色・光・質感） | 未着手 |
 | 4 | 骨格（Skeleton） | どこに何を置くか（画面配置・ボタン） | 未着手 |
-| 3 | 構造（Structure） | どうつながり、どう動くか（情報の構造・操作の流れ） | **草案・確認待ち** → [03-structure.md](./03-structure.md) |
+| 3 | 構造（Structure） | どうつながり、どう動くか（情報の構造・操作の流れ） | **確定** → [03-structure.md](./03-structure.md) |
 | 2 | 要件（Scope） | 何を作り、何を作らないか（機能・コンテンツ） | **確定** → [02-scope.md](./02-scope.md) |
 | 1 | 戦略（Strategy） | なぜ作るのか、誰のためか | **確定** → [01-strategy.md](./01-strategy.md) |
 
