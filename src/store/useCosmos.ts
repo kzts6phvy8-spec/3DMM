@@ -74,6 +74,8 @@ interface CosmosState extends Data {
   cancelConnection(): void;
 
   undoLast(): void;
+  /** Wikipediaの概要から選んだ文で星を登録する（出典は自動で付く。確認済みにはしない） */
+  registerFromWikipedia(starId: string, input: { summary: string; sentences: string[]; articleTitle: string; url: string }): void;
   /** 初期セットを今のデータに追加する。追加した星の数を返す */
   addStarterSet(): number;
   /** 初期セットをまとめて削除する（自分で記述を足した星は残す）。削除した星の数を返す */
@@ -373,6 +375,38 @@ export const useCosmos = create<CosmosState>((set, get) => {
 
     cancelConnection() {
       set({ pendingConnection: null });
+    },
+
+    registerFromWikipedia(starId, input) {
+      const t = nowIso();
+      const existing = get().sources.find((src) => src.url === input.url || src.title === `Wikipedia：${input.articleTitle}`);
+      const source: Source = existing ?? {
+        id: newId(), type: 'web', title: `Wikipedia：${input.articleTitle}`, url: input.url, author: '', page: '', addedAt: t,
+      };
+      commit((d) => {
+        const baseOrder = Math.max(-1, ...d.statements.filter((st) => st.starId === starId).map((st) => st.order)) + 1;
+        const added: Statement[] = input.sentences.map((text, i) => ({
+          id: newId(), starId, text, kind: 'fact', topic: '', sourceIds: [source.id], manualCheck: null, checkNote: '',
+          order: baseOrder + i, createdAt: t, updatedAt: t,
+        }));
+        return {
+          sources: existing ? d.sources : [...d.sources, source],
+          statements: [...d.statements, ...added],
+          nodes: d.nodes.map((n) =>
+            n.id === starId
+              ? {
+                  ...n,
+                  status: 'known',
+                  summary: n.summary || input.summary,
+                  importance: n.status === 'unknown' ? 2 : n.importance,
+                  origin: n.status === 'unknown' ? 'wikipedia' : n.origin,
+                  updatedAt: t,
+                }
+              : n,
+          ),
+        };
+      });
+      set({ expanded: true });
     },
 
     addStarterSet() {

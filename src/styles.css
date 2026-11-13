@@ -228,3 +228,12 @@ button.danger { color: var(--danger); }
   background: #10142a; border: 1px solid var(--panel-border); border-radius: 14px;
 }
 .menu button { text-align: left; background: transparent; border-color: transparent; }
+
+/* ---- Wikipediaの概要 ---- */
+.wiki-box { border: 1px solid var(--panel-border); border-radius: 12px; padding: 10px 12px; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; background: rgba(255, 255, 255, 0.03); }
+.wiki-box a { color: var(--accent); }
+.wiki-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.wiki-sentences { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wiki-sentence { display: flex; gap: 10px; align-items: flex-start; line-height: 1.6; }
+.wiki-sentence input { width: 22px; height: 22px; margin-top: 3px; flex: 0 0 auto; accent-color: var(--accent); }
+.license { margin: 0; }
