@@ -9,11 +9,11 @@ import { displayName, parseLinkIds, plainText } from '../lib/knowledge';
 import { normalize } from '../lib/search';
 
 /** 星を開く（宇宙の視点を動かし、プレビューを出す） */
-function openStar(id: string, expanded = false) {
+export function openStar(id: string, expanded = false) {
   useCosmos.setState({ panel: null, selectedId: id, trail: [], expanded, mode: 'view', focus: { id, nonce: Date.now() } });
 }
 
-function PanelFrame({ title, children }: { title: string; children: React.ReactNode }) {
+export function PanelFrame({ title, children }: { title: string; children: React.ReactNode }) {
   const openPanel = useCosmos((s) => s.openPanel);
   return (
     <div className="panel-backdrop" onClick={() => openPanel(null)}>
@@ -251,6 +251,11 @@ export function MorePanel() {
 
   return (
     <PanelFrame title="その他">
+      <h3>振り返り</h3>
+      <div className="more-actions">
+        <button onClick={() => openPanel('report')}>📅 今月の発見</button>
+      </div>
+
       <h3>データ</h3>
       <div className="more-actions">
         <button onClick={doExport}>⬇ バックアップを書き出す</button>
