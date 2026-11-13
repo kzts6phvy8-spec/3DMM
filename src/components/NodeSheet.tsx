@@ -11,6 +11,7 @@ import {
   splitText,
 } from '../lib/knowledge';
 import { SEARCH_SITES, openSearch } from '../lib/externalSearch';
+import { engagementSummary } from '../lib/engagement';
 import { WikipediaPreview } from './WikipediaPreview';
 import { SuggestionList } from './SuggestionList';
 import { SeedButton } from './SeedButton';
@@ -37,6 +38,31 @@ function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeN
         );
       })}
     </>
+  );
+}
+
+/** あなたとこの星：開いた回数・自分で加えた記述・結んだつながりなど */
+function EngagementBlock({ star }: { star: KnowledgeNode }) {
+  const nodes = useCosmos((s) => s.nodes);
+  const statements = useCosmos((s) => s.statements);
+  const relations = useCosmos((s) => s.relations);
+  const engagement = useCosmos((s) => s.engagement);
+  const e = useMemo(
+    () => engagementSummary(star, { nodes, statements, relations, engagement }),
+    [star, nodes, statements, relations, engagement],
+  );
+  return (
+    <section className="engagement" aria-label="あなたとこの星">
+      <h3>あなたとこの星</h3>
+      <dl className="meta">
+        <dt>開いた</dt>
+        <dd>{e.views}回{e.firstViewedAt && `（はじめて ${formatDate(e.firstViewedAt)}）`}</dd>
+        <dt>加えた記述</dt><dd>{e.wrote}件</dd>
+        <dt>結んだつながり</dt><dd>{e.connected}本</dd>
+        {e.seeded > 0 && (<><dt>広げた言葉</dt><dd>{e.seeded}個</dd></>)}
+        <dt>この星は</dt><dd>{e.createdByMe ? '自分で加えた星' : '初期セットの星'}</dd>
+      </dl>
+    </section>
   );
 }
 
@@ -370,11 +396,13 @@ export function NodeSheet({
             </>
           )}
 
+          <EngagementBlock star={node} />
+
           <dl className="meta">
             {node.aliases.length > 0 && (<><dt>別名</dt><dd>{node.aliases.join('、')}</dd></>)}
             {node.tags.length > 0 && (<><dt>タグ</dt><dd>{node.tags.map((t) => <span key={t} className="tag">#{t}</span>)}</dd></>)}
             <dt>登録</dt><dd>{formatDate(node.createdAt)}</dd>
-            {node.origin === 'starter' && (<><dt>出どころ</dt><dd>初期セット（AIが用意。出典は自分で確認してください）</dd></>)}
+            {node.origin === 'starter' && (<><dt>出どころ</dt><dd>初期セット（AIが用意。出典はWikipedia）</dd></>)}
           </dl>
         </div>
       )}

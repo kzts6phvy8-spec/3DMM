@@ -97,6 +97,7 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 - **出典（Source）**：独立したデータ。複数の記述から使い回す。
 - **意味のつながり（Relation）**：自分で結ぶ線。理由の事実／意見の区別と出典を持つ。
 - **言及のつながり**：記述のリンクから自動で計算する。保存しない。
+- **関わり方の記録**：星を開いた回数など。`src/lib/engagement.ts`。保存キー `engagement-v1`（知識のデータとは別）。バックアップにも含める。
 - **確認状態はない**（2026-11-13に廃止）。旧データの `manualCheck`・`checkNote` は、読み込み時とバックアップ復元時に `dropCheckFields` で取り除く。
 - 保存キー：`cosmos-v2`。旧形式 `cosmos-v1` は読み込み時に移行し、旧データは消さずに残す。
 - 削除や編集で整合性が壊れないようにする。
@@ -155,6 +156,7 @@ MVPは、利用者が自分の知識を登録し、知識同士を接続し、iP
 src/
   types.ts                データの形（星・記述・出典・つながり）
   lib/knowledge.ts        リンク・言及のつながりの決まり（画面から独立）
+  lib/engagement.ts       関わり方の記録（星を開いた回数など）
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/externalSearch.ts   「調べる」ボタン用の外部検索
   storage/repository.ts   保存処理（IndexedDB）と旧形式からの移行
