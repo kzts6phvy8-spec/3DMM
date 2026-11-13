@@ -10,6 +10,7 @@ import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar
 import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
 import { ReportPanel } from './components/ReportPanel';
 import { PuzzlePanel } from './components/PuzzlePanel';
+import { ComparePanel, OverlayBanner } from './components/ComparePanel';
 import { LAYOUT } from './config/layout';
 import { SelectionToStar } from './components/SelectionToStar';
 
@@ -67,6 +68,15 @@ export default function App() {
       {panel === 'more' && <MorePanel />}
       {panel === 'report' && <ReportPanel />}
       {panel === 'puzzle' && <PuzzlePanel />}
+      {panel === 'compare' && (
+        <ComparePanel
+          onCreate={(title) => {
+            useCosmos.getState().openPanel(null);
+            setForm({ editId: null, title });
+          }}
+        />
+      )}
+      <OverlayBanner />
       <SelectionToStar />
       <ErrorToast />
       <UndoToast />

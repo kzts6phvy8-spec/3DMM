@@ -255,6 +255,7 @@ export function MorePanel() {
       <div className="more-actions">
         <button onClick={() => openPanel('puzzle')}>🧩 今日のつながりパズル</button>
         <button onClick={() => openPanel('report')}>📅 今月の発見</button>
+        <button onClick={() => openPanel('compare')}>👥 友達の宇宙と重ねる</button>
       </div>
 
       <h3>データ</h3>
