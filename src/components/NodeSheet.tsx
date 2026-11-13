@@ -18,6 +18,7 @@ import { WikipediaPreview } from './WikipediaPreview';
 import { SuggestionList } from './SuggestionList';
 import { SeedButton } from './SeedButton';
 import { WikiStatementSuggestions } from './WikiStatementSuggestions';
+import { OtherSources } from './OtherSources';
 
 /** 本文中のリンクを押せる形で表示する */
 function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeNode> }) {
@@ -345,6 +346,7 @@ export function NodeSheet({
           </div>
           {own.length === 0 && <p className="muted">まだ記述がありません。事実や意見を1文ずつ追加できます。</p>}
           <WikiStatementSuggestions star={node} />
+          <OtherSources key={`other-${node.id}`} star={node} compact />
           <div className="statement-groups">
             {[...groups.entries()].map(([topic, list]) => (
               <div key={topic || '_'}>

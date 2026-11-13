@@ -5,6 +5,7 @@ import { useCosmos } from '../store/useCosmos';
 import type { KnowledgeNode } from '../types';
 import { cleanTitle, searchWikiCandidates, type WikiCandidate } from '../lib/wikipedia';
 import { parseLinkIds } from '../lib/knowledge';
+import { OtherSources } from './OtherSources';
 
 /** 関係する星の名前（検索の手がかり）を最大2つ選ぶ */
 function useContextNames(star: KnowledgeNode): string[] {
@@ -50,7 +51,7 @@ export function WikiArticlePicker({ star, reason, onPicked }: { star: KnowledgeN
       </p>
       {list === 'loading' && <p className="muted small">探しています…</p>}
       {list !== 'loading' && list.length === 0 && (
-        <p className="muted small">候補が見つかりませんでした。Wikipediaに載っていない言葉かもしれません。下の「調べる」で探すか、自分で記述を書いてください。</p>
+        <p className="muted small">日本語版Wikipediaに候補が見つかりませんでした。下の「ほかの辞書」でも探せます。</p>
       )}
       {list !== 'loading' && (
         <ul className="panel-list">
@@ -72,6 +73,7 @@ export function WikiArticlePicker({ star, reason, onPicked }: { star: KnowledgeN
           ))}
         </ul>
       )}
+      <OtherSources star={star} compact />
     </div>
   );
 }
