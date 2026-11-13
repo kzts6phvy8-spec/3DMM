@@ -83,13 +83,23 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 
 ## 7. データ設計
 
-知識ノードと関係性を別々のデータとして管理する。
+詳細は `src/types.ts` と `docs/ux/03-structure.md` を正とする。
 
-ノードにはID、名称、説明、カテゴリー、タグ、出典URL、登録日時、更新日時、3D座標、重要度を持たせる。
-
-関係性にはID、接続元ID、接続先ID、関係の種類、説明、登録日時を持たせる。
-
-削除や編集によって関係性の整合性が壊れないようにする。
+- **星（KnowledgeNode）**：百科事典の1項目。
+  - 登録済み（known）と、まだ知らない星（unknown）がある。
+  - 区別用の補足・別名・種類・概要を持つ。
+- **記述（Statement）**：星に属する1つの文。
+  - 事実か意見か、話題、出典ID、人の確認判断を持つ。
+  - 本文中の `[[@星ID]]` は星へのリンク。
+- **出典（Source）**：独立したデータ。複数の記述から使い回す。
+- **意味のつながり（Relation）**：自分で結ぶ線。理由の事実／意見の区別と出典を持つ。
+- **言及のつながり**：記述のリンクから自動で計算する。保存しない。
+- **確認状態**：`src/lib/knowledge.ts` の `verificationOf` で決める。
+  - 「確認済み」は人だけが付ける。AIや自動処理は付けない。
+- 保存キー：`cosmos-v2`。旧形式 `cosmos-v1` は読み込み時に移行し、旧データは消さずに残す。
+- 削除や編集で整合性が壊れないようにする。
+  - リンクされた星を消すと「まだ知らない星」に戻す。
+  - どこからも参照されない「まだ知らない星」は自動で消す。
 
 ## 8. 開発ルール
 
@@ -141,12 +151,15 @@ MVPは、利用者が自分の知識を登録し、知識同士を接続し、iP
 
 ```
 src/
-  types.ts              データ型（知識ノード・関係性）
-  lib/                  色・ID生成などの小さな部品
-  storage/repository.ts 保存処理（IndexedDB）。UIから独立させる
-  store/useCosmos.ts    アプリの状態と操作（Zustand）
-  sampleData.ts         初回起動時のサンプル知識
-  components/           画面部品（3D空間・ボトムシート・フォーム）
+  types.ts                データの形（星・記述・出典・つながり）
+  lib/knowledge.ts        リンク・確認状態・言及のつながりの決まり（画面から独立）
+  lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
+  lib/externalSearch.ts   ファクトチェック用の外部検索
+  storage/repository.ts   保存処理（IndexedDB）と旧形式からの移行
+  store/useCosmos.ts      アプリの状態と操作（Zustand）
+  data/buildDataset.ts    初期データを [[名前]] 形式から組み立てる
+  sampleData.ts           初回起動時のサンプル
+  components/             画面部品（3D空間・ボトムシート・フォーム）
 ```
 
 - 開発サーバー: `npm run dev`

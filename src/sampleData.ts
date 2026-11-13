@@ -1,28 +1,67 @@
-import type { CosmosData, KnowledgeNode, Relation } from './types';
+import type { CosmosData } from './types';
+import { buildDataset } from './data/buildDataset';
 
-const t = '2026-01-01T00:00:00.000Z';
-
-function node(id: string, title: string, description: string, category: string, tags: string[], position: [number, number, number], importance: number): KnowledgeNode {
-  return { id, title, description, category, tags, sourceUrl: '', createdAt: t, updatedAt: t, position, importance };
-}
-
-/** 初回起動時だけ表示するサンプル知識（5個） */
+/**
+ * 初回起動時のサンプル（5個）。
+ * AIが用意した内容なので、状態は最高でも「出典あり」。確認済みにはしていない。
+ * 出典のWikipedia記事は、実在することを確認済み（2026-11-13）。内容の一致は利用者が確認する。
+ */
 export function createSampleData(): CosmosData {
-  const nodes: KnowledgeNode[] = [
-    node('s-socrates', 'ソクラテス', '古代ギリシャ・アテナイの哲学者。著作を残さず、対話によって哲学した。', '哲学', ['人物', '古代ギリシャ'], [0, 0, 0], 5),
-    node('s-ignorance', '無知の知', '自分が知らないということを自覚していること。ソクラテスの思想の核。', '哲学', ['概念'], [3, 1.5, -1], 3),
-    node('s-dialectic', '問答法', '問いと答えを重ねて相手の思い込みを明らかにし、真理に近づく方法。', '哲学', ['方法'], [-2.5, 2, 1.5], 3),
-    node('s-plato', 'プラトン', 'ソクラテスの弟子。師の対話を著作として残し、イデア論を説いた。', '哲学', ['人物', '古代ギリシャ'], [-3, -1.5, -2], 4),
-    node('s-greek', '古代ギリシャ哲学', '紀元前6世紀頃からの、自然や人間を理性で探究した思想の流れ。', '歴史', ['時代'], [1.5, -3, 2], 4),
-  ];
-  const rel = (id: string, s: string, tg: string, relationType: Relation['relationType'], explanation: string): Relation => ({
-    id, sourceNodeId: s, targetNodeId: tg, relationType, explanation, createdAt: t,
+  return buildDataset({
+    origin: 'starter',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    sources: [
+      { key: 'wp-socrates', type: 'web', title: 'Wikipedia：ソクラテス', url: 'https://ja.wikipedia.org/wiki/ソクラテス' },
+      { key: 'wp-plato', type: 'web', title: 'Wikipedia：プラトン', url: 'https://ja.wikipedia.org/wiki/プラトン' },
+      { key: 'wp-ignorance', type: 'web', title: 'Wikipedia：無知の知', url: 'https://ja.wikipedia.org/wiki/無知の知' },
+      { key: 'wp-dialectic', type: 'web', title: 'Wikipedia：問答法', url: 'https://ja.wikipedia.org/wiki/問答法' },
+      { key: 'wp-greek', type: 'web', title: 'Wikipedia：ギリシア哲学', url: 'https://ja.wikipedia.org/wiki/ギリシア哲学' },
+    ],
+    stars: [
+      {
+        key: 'socrates', title: 'ソクラテス', aliases: ['Socrates'], kind: 'person', category: '哲学',
+        tags: ['古代ギリシャ'], summary: '古代ギリシャ・アテナイの哲学者。', importance: 5, position: [0, 0, 0],
+        statements: [
+          { text: '古代ギリシャの[[アテナイ]]で活動した哲学者である。', sources: ['wp-socrates'] },
+          { text: '自身は著作を残さず、その思想は主に弟子の[[プラトン]]の著作を通じて伝わっている。', sources: ['wp-socrates'] },
+          { text: '紀元前399年に裁判で死刑判決を受け、刑死した。', topic: '歴史', sources: ['wp-socrates'] },
+          { text: '[[無知の知]]は、現代の[[科学的懐疑]]の態度に通じるところがある。', kind: 'opinion' },
+        ],
+      },
+      {
+        key: 'ignorance', title: '無知の知', kind: 'concept', category: '哲学',
+        summary: '自分が知らないということを自覚していること。', importance: 3, position: [3, 1.5, -1],
+        statements: [
+          { text: '[[ソクラテス]]の思想を表す言葉として知られる。', sources: ['wp-ignorance'] },
+          { text: '[[デルポイの神託]]をめぐる逸話と結びつけて語られる。', topic: '由来', sources: ['wp-ignorance'] },
+        ],
+      },
+      {
+        key: 'dialectic', title: '問答法', kind: 'concept', category: '哲学',
+        summary: '問いと答えを重ねて相手の考えを吟味する方法。', importance: 3, position: [-2.5, 2, 1.5],
+        statements: [
+          { text: '[[ソクラテス]]が対話の中で用いた方法として知られる。', sources: ['wp-dialectic'] },
+        ],
+      },
+      {
+        key: 'plato', title: 'プラトン', aliases: ['Plato'], kind: 'person', category: '哲学',
+        tags: ['古代ギリシャ'], summary: 'ソクラテスの弟子で、古代ギリシャの哲学者。', importance: 4, position: [-3, -1.5, -2],
+        statements: [
+          { text: '[[ソクラテス]]の弟子である。', sources: ['wp-plato'] },
+          { text: '[[イデア論]]を説いた。', sources: ['wp-plato'] },
+          { text: '[[アテナイ]]に学園[[アカデメイア]]を開いた。', sources: ['wp-plato'] },
+        ],
+      },
+      {
+        key: 'greek', title: '古代ギリシャ哲学', aliases: ['古代ギリシア哲学'], kind: 'concept', category: '歴史',
+        summary: '古代ギリシャで展開された哲学の総称。', importance: 4, position: [1.5, -3, 2],
+        statements: [
+          { text: '[[ソクラテス]]、[[プラトン]]、[[アリストテレス]]らが代表的な哲学者として挙げられる。', sources: ['wp-greek'] },
+        ],
+      },
+    ],
+    relations: [
+      { from: 'socrates', to: 'plato', type: 'historical', explanation: '師弟関係', sources: ['wp-plato'] },
+    ],
   });
-  const relations: Relation[] = [
-    rel('r1', 's-socrates', 's-ignorance', 'application', 'ソクラテスが説いた考え方'),
-    rel('r2', 's-socrates', 's-dialectic', 'application', 'ソクラテスが用いた対話の方法'),
-    rel('r3', 's-socrates', 's-plato', 'historical', '師弟関係'),
-    rel('r4', 's-socrates', 's-greek', 'partWhole', '古代ギリシャ哲学を代表する人物'),
-  ];
-  return { nodes, relations };
 }

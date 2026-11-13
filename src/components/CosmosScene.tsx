@@ -9,6 +9,7 @@ import type { KnowledgeNode, Vec3 } from '../types';
 import { RELATION_COLORS, categoryColor, starRadius } from '../lib/util';
 import { sceneApi } from '../lib/sceneApi';
 import { labelElements } from '../lib/labelRegistry';
+import { mentionEdges, parseLinkIds } from '../lib/knowledge';
 
 /** 指が少しぶれても「タップ」とみなす移動量（ピクセル） */
 const TAP_TOLERANCE = 10;
@@ -42,11 +43,13 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
   const focusOn = useCosmos((s) => s.focusOn);
   const { camera, controls } = useThree() as unknown as { camera: THREE.Camera; controls: OrbitControlsImpl | null };
 
-  const r = starRadius(node.importance);
-  const color = categoryColor(node.category);
+  // まだ知らない星は、小さく淡い光で表す
+  const unknown = node.status === 'unknown';
+  const r = unknown ? starRadius(1) * 0.75 : starRadius(node.importance);
+  const color = unknown ? '#8f99c2' : categoryColor(node.category);
   const coreColor = useMemo(() => new THREE.Color(color).lerp(new THREE.Color('#ffffff'), 0.65), [color]);
   // つながりのない星は「未整理」として淡く光らせる
-  const dim = !connected;
+  const dim = !connected || unknown;
   const highlight = selected || isConnectFrom;
 
   const drag = useRef<{ plane: THREE.Plane; offset: THREE.Vector3 } | null>(null);
@@ -106,11 +109,11 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
       {/* 星の核（白く輝く中心） */}
       <mesh>
         <sphereGeometry args={[r * 0.6, 20, 20]} />
-        <meshBasicMaterial color={coreColor} transparent opacity={dim ? 0.5 : 1} toneMapped={false} />
+        <meshBasicMaterial color={coreColor} transparent opacity={unknown ? 0.3 : dim ? 0.5 : 1} toneMapped={false} />
       </mesh>
       {/* 内側の強い光 */}
       <sprite scale={[r * 3.2, r * 3.2, 1]}>
-        <spriteMaterial map={getHaloTexture()} color={color} transparent opacity={dim ? 0.45 : 1}
+        <spriteMaterial map={getHaloTexture()} color={color} transparent opacity={unknown ? 0.3 : dim ? 0.45 : 1}
           depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
       </sprite>
       {/* 外側のぼんやりした光（ハロー） */}
@@ -145,11 +148,36 @@ function StarNode({ node, connected }: { node: KnowledgeNode; connected: boolean
 function RelationLines() {
   const nodes = useCosmos((s) => s.nodes);
   const relations = useCosmos((s) => s.relations);
+  const statements = useCosmos((s) => s.statements);
   const selectedId = useCosmos((s) => s.selectedId);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const mentions = useMemo(() => mentionEdges(statements, new Set(byId.keys())), [statements, byId]);
 
   return (
     <>
+      {/* 言及のつながり：記述の中のリンクから自動でできる細い線 */}
+      {mentions.map((m) => {
+        const a = byId.get(m.a);
+        const b = byId.get(m.b);
+        if (!a || !b) return null;
+        const active = selectedId === a.id || selectedId === b.id;
+        const toUnknown = a.status === 'unknown' || b.status === 'unknown';
+        return (
+          <Line
+            key={m.id}
+            points={[a.position, b.position]}
+            color="#c9d6ff"
+            lineWidth={active ? 1.4 : 0.8}
+            transparent
+            opacity={(active ? 0.55 : selectedId ? 0.08 : 0.2) * (toUnknown ? 0.6 : 1)}
+            dashed={m.kind === 'opinion'}
+            dashSize={0.25}
+            gapSize={0.2}
+            toneMapped={false}
+          />
+        );
+      })}
+      {/* 意味のつながり：自分で結んだ明るい線（理由が意見なら点線） */}
       {relations.map((r) => {
         const a = byId.get(r.sourceNodeId);
         const b = byId.get(r.targetNodeId);
@@ -160,9 +188,12 @@ function RelationLines() {
             key={r.id}
             points={[a.position, b.position]}
             color={RELATION_COLORS[r.relationType]}
-            lineWidth={active ? 3 : 1.5}
+            lineWidth={active ? 3 : 1.8}
             transparent
-            opacity={active ? 0.95 : selectedId ? 0.25 : 0.6}
+            opacity={active ? 0.95 : selectedId ? 0.25 : 0.7}
+            dashed={r.explanationKind === 'opinion'}
+            dashSize={0.3}
+            gapSize={0.2}
             toneMapped={false}
           />
         );
@@ -223,15 +254,39 @@ function ViewShift() {
 /** 毎フレーム、星の3D座標を画面上の位置に変換してラベルを動かす */
 function LabelProjector() {
   const v = useMemo(() => new THREE.Vector3(), []);
+  const selectedId = useCosmos((s) => s.selectedId);
+  const statements = useCosmos((s) => s.statements);
+  // 選んだ星とリンクでつながっている星（まだ知らない星のラベルを見せる対象）
+  const near = useMemo(() => {
+    const set = new Set<string>();
+    if (!selectedId) return set;
+    set.add(selectedId);
+    for (const st of statements) {
+      const ids = parseLinkIds(st.text);
+      if (st.starId === selectedId) ids.forEach((id) => set.add(id));
+      else if (ids.includes(selectedId)) set.add(st.starId);
+    }
+    return set;
+  }, [selectedId, statements]);
+
   useFrame(({ camera, size }) => {
     const { nodes } = useCosmos.getState();
     for (const n of nodes) {
       const el = labelElements.get(n.id);
       if (!el) continue;
-      v.set(n.position[0], n.position[1] - starRadius(n.importance) - 0.35, n.position[2]);
+      const unknown = n.status === 'unknown';
+      const r = unknown ? starRadius(1) * 0.75 : starRadius(n.importance);
+      v.set(n.position[0], n.position[1] - r - 0.35, n.position[2]);
       const dist = camera.position.distanceTo(v);
       v.project(camera);
       if (v.z > 1 || v.z < -1) {
+        el.style.visibility = 'hidden';
+        continue;
+      }
+      // まだ知らない星のラベルは、近づいたとき・関係する星を選んだときだけ見せる（重なり防止）
+      let opacity = Math.max(0.3, Math.min(1, 1.4 - dist / 40));
+      if (unknown && !near.has(n.id)) opacity = Math.max(0, Math.min(0.8, (11 - dist) / 3));
+      if (opacity <= 0.02) {
         el.style.visibility = 'hidden';
         continue;
       }
@@ -239,8 +294,7 @@ function LabelProjector() {
       const y = ((1 - v.y) / 2) * size.height;
       el.style.visibility = 'visible';
       el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
-      // 遠くの星のラベルは少し薄くする
-      el.style.opacity = String(Math.max(0.3, Math.min(1, 1.4 - dist / 40)));
+      el.style.opacity = String(opacity);
     }
   });
   return null;
@@ -282,6 +336,7 @@ function SceneBridge() {
 export function CosmosScene() {
   const nodes = useCosmos((s) => s.nodes);
   const relations = useCosmos((s) => s.relations);
+  const statements = useCosmos((s) => s.statements);
   const mode = useCosmos((s) => s.mode);
   const select = useCosmos((s) => s.select);
 
@@ -291,8 +346,12 @@ export function CosmosScene() {
       set.add(r.sourceNodeId);
       set.add(r.targetNodeId);
     }
+    for (const m of mentionEdges(statements, new Set(nodes.map((n) => n.id)))) {
+      set.add(m.a);
+      set.add(m.b);
+    }
     return set;
-  }, [relations]);
+  }, [relations, statements, nodes]);
 
   return (
     <Canvas
