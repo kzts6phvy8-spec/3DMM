@@ -186,7 +186,7 @@ export function StatementForm({ starId, statementId, onClose }: { starId: string
         {kind === 'fact' && (
           <div className="field">
             <span>出典（{sourceIds.length}）</span>
-            {sourceIds.length === 0 && <span className="muted small">出典がない事実は「未確認」になります。</span>}
+            {sourceIds.length === 0 && <span className="muted small">出典を付けると、あとで見返せます。</span>}
             <ul className="source-list">
               {sourceIds.map((id) => {
                 const src = allSources.find((s) => s.id === id);
@@ -265,9 +265,6 @@ export function StatementForm({ starId, statementId, onClose }: { starId: string
           </div>
         )}
 
-        {editing?.manualCheck === 'verified' && (
-          <p className="muted small">※ 本文を書き換えると「確認済み」は外れます（もう一度確かめるため）。</p>
-        )}
         <div className="modal-actions">
           <button type="button" onClick={onClose}>キャンセル</button>
           <button type="submit" className="primary" disabled={!text.trim()}>{editing ? '保存' : '追加'}</button>

@@ -2,16 +2,13 @@
 // プレビュー（概要だけ）と、星のページ（記述・出典・つながりの全部）の2段階（構造の層 ③A）
 import { useMemo, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
-import { RELATION_TYPES, STAR_KINDS, VERIFICATION_LABELS, type KnowledgeNode, type Statement } from '../types';
+import { RELATION_TYPES, STAR_KINDS, type KnowledgeNode, type Statement } from '../types';
 import { RELATION_COLORS, categoryColor, formatDate } from '../lib/util';
 import {
   displayName,
   parseLinkIds,
   plainText,
-  relationVerification,
   splitText,
-  starCertainty,
-  statementVerification,
 } from '../lib/knowledge';
 import { SEARCH_SITES, openSearch } from '../lib/externalSearch';
 import { WikipediaPreview } from './WikipediaPreview';
@@ -43,9 +40,9 @@ function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeN
   );
 }
 
-function VerificationBadge({ v }: { v: keyof typeof VERIFICATION_LABELS | null }) {
-  if (!v) return <span className="badge kind-opinion">意見</span>;
-  return <span className={`badge v-${v}`}>{VERIFICATION_LABELS[v]}</span>;
+/** 事実か意見かの印 */
+function KindBadge({ kind }: { kind: 'fact' | 'opinion' }) {
+  return kind === 'opinion' ? <span className="badge kind-opinion">意見</span> : <span className="badge kind-fact">事実</span>;
 }
 
 function SearchButtons({ query }: { query: string }) {
@@ -73,16 +70,15 @@ function StatementItem({
   onEdit: () => void;
 }) {
   const sources = useCosmos((s) => s.sources);
-  const { setCheck, deleteStatement } = useCosmos.getState();
+  const { deleteStatement } = useCosmos.getState();
   const [open, setOpen] = useState(false);
-  const v = statementVerification(st);
   const plain = plainText(st.text, byId);
   const query = plain.includes(star.title) ? plain : `${star.title} ${plain}`;
 
   return (
     <li className={`statement${st.kind === 'opinion' ? ' is-opinion' : ''}`}>
       <div className="statement-head">
-        <VerificationBadge v={v} />
+        <KindBadge kind={st.kind} />
         {st.topic && <span className="badge topic">{st.topic}</span>}
         <button className="small-btn ghost" onClick={() => setOpen(!open)} aria-expanded={open}>
           {open ? '閉じる' : '詳しく'}
@@ -114,36 +110,10 @@ function StatementItem({
                   );
                 })}
               </ul>
-              {st.checkNote && <p className="check-note">確認メモ：{st.checkNote}</p>}
               <SearchButtons query={query} />
-              <div className="check-actions">
-                <button
-                  className="small-btn"
-                  disabled={st.sourceIds.length === 0}
-                  onClick={() => {
-                    const note = window.prompt('どう確認しましたか？（例：出典を読み、内容が一致した）', st.checkNote);
-                    if (note !== null) setCheck(st.id, 'verified', note);
-                  }}
-                >
-                  ✓ 確認済みにする
-                </button>
-                <button
-                  className="small-btn"
-                  onClick={() => {
-                    const note = window.prompt('異論の理由を書いてください', st.checkNote);
-                    if (note !== null) setCheck(st.id, 'disputed', note);
-                  }}
-                >
-                  ⚠ 異論あり
-                </button>
-                {st.manualCheck && (
-                  <button className="small-btn" onClick={() => setCheck(st.id, null, st.checkNote)}>判断を外す</button>
-                )}
-              </div>
-              {st.sourceIds.length === 0 && <p className="muted small">「確認済み」にするには出典が必要です。</p>}
             </>
           )}
-          {st.kind === 'opinion' && <p className="muted">これは自分の考え（意見）です。確認状態はありません。</p>}
+          {st.kind === 'opinion' && <p className="muted">これは自分の考え（意見）です。</p>}
           <div className="check-actions">
             <button className="small-btn" onClick={onEdit}>✎ 編集</button>
             <button
@@ -209,7 +179,6 @@ export function NodeSheet({
 
   if (!node || mode !== 'view') return null;
 
-  const certainty = starCertainty(node.id, statements);
   const prev = trail.length ? byId.get(trail[trail.length - 1]) : undefined;
 
   const handleDelete = () => {
@@ -305,11 +274,6 @@ export function NodeSheet({
       <div className="sheet-sub">
         <span>{STAR_KINDS[node.kind]}</span>
         {node.category && <span>・{node.category}</span>}
-        {certainty.facts > 0 && (
-          <span className="certainty">
-            ・事実{certainty.facts}件中 確認済み{certainty.verified}件
-          </span>
-        )}
       </div>
       {node.summary ? (
         <p className="summary">{node.summary}</p>
@@ -369,7 +333,7 @@ export function NodeSheet({
                   <span className="badge" style={{ borderColor: RELATION_COLORS[relation.relationType], color: RELATION_COLORS[relation.relationType] }}>
                     {RELATION_TYPES[relation.relationType]}
                   </span>
-                  <VerificationBadge v={relationVerification(relation)} />
+                  <KindBadge kind={relation.explanationKind} />
                   <span className="related-title">{outgoing ? '→ ' : '← '}{other ? displayName(other) : '（不明）'}</span>
                   {relation.explanation && <span className="related-expl">{relation.explanation}</span>}
                 </button>

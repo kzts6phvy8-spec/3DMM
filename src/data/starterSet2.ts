@@ -1,5 +1,5 @@
 // 初期セット 第2弾（約75個）。第1弾で「まだ知らない星」だった言葉を中心に、分野をまたぐ星を足す。
-// 決まりは第1弾と同じ：事実にはその星のWikipedia記事を出典として付け、確認済みにはしない。
+// 決まりは第1弾と同じ：事実にはその星のWikipedia記事を出典として付ける。
 import type { RelationSpec, StarSpec } from './buildDataset';
 
 const T = (text: string) => ({ text, topic: '雑学' });

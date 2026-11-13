@@ -123,7 +123,7 @@ export function WikiStatementSuggestions({ star }: { star: KnowledgeNode }) {
         <a className="small" href={result.url} target="_blank" rel="noreferrer">記事を開く</a>
         <button className="small-btn ghost" onClick={() => setChoosing(true)}>別の記事を選ぶ</button>
       </div>
-      <p className="muted small">追加したい文を選んでください。出典は自動で付きます（状態は「出典あり」。確認はあなたが行います）。</p>
+      <p className="muted small">追加したい文を選んでください。出典は自動で付きます。</p>
       {terms.length > 0 && <p className="muted small">点線の言葉を押すと、その言葉も星になります（まだ知らない星として宇宙に現れます）。</p>}
       {sections.length === 0 && <p className="muted">新しい候補はありません。</p>}
       <ul className="wiki-sections">

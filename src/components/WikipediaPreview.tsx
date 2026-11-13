@@ -85,7 +85,7 @@ export function WikipediaPreview({ starId, title }: { starId: string; title: str
         <button className="small-btn ghost" onClick={() => setChoosing(true)}>別の記事を選ぶ</button>
         {result.description && <span className="muted small">{result.description}</span>}
       </div>
-      <p className="muted small">登録する文を選んでください。出典は自動で付きます（状態は「出典あり」。確認はあなたが行います）。</p>
+      <p className="muted small">登録する文を選んでください。出典は自動で付きます。</p>
       {terms.length > 0 && <p className="muted small">点線の言葉を押すと、その言葉も星になります（まだ知らない星として宇宙に現れます）。</p>}
       <ul className="wiki-sentences">
         {sentences.map((s, i) => (

@@ -156,8 +156,6 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
         kind: st.kind ?? 'fact',
         topic: st.topic ?? '',
         sourceIds: (st.sources ?? (st.kind !== 'opinion' && s.wp ? [`wp-${s.key}`] : [])).map(sourceId),
-        manualCheck: null, // AIが用意したものは「確認済み」にしない
-        checkNote: '',
         order,
         createdAt: t,
         updatedAt: t,
@@ -173,7 +171,6 @@ export function buildDataset(spec: DatasetSpec): CosmosData {
     explanation: r.explanation,
     explanationKind: r.kind ?? 'fact',
     sourceIds: (r.sources ?? []).map(sourceId),
-    manualCheck: null,
     createdAt: t,
   }));
 
