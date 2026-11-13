@@ -19,12 +19,14 @@ export function LabelLayer() {
     [signature],
   );
   return (
-    <div className="label-layer" aria-hidden="true">
+    <div className="label-layer">
       {items.map((n) => (
         <div
           key={n.id}
           className={`star-label${n.id === selectedId || n.id === connectFromId ? ' is-selected' : ''}${n.status === 'unknown' ? ' is-unknown' : ''}`}
           style={{ visibility: 'hidden' }}
+          // 名前を押しても、その星を選べる（星が密集していても、狙った星を選びやすいように）
+          onClick={() => useCosmos.getState().tapNode(n.id)}
           ref={(el) => {
             if (el) labelElements.set(n.id, el);
             else labelElements.delete(n.id);
