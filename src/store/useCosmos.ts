@@ -102,10 +102,12 @@ interface CosmosState extends Data {
     starId: string,
     input: { summary: string; sentences: (string | { text: string; topic: string })[]; articleTitle: string; url: string },
   ): void;
+  /** 名前の一覧のうち、宇宙にまだない言葉を最大limit個、「まだ知らない星」としてもとの星の周りに生やす。生えた数を返す */
+  seedStars(starId: string, names: string[], limit: number): number;
   /** この星に使うWikipediaの記事を覚える */
   setWikiTitle(starId: string, title: string | undefined): void;
   /** 初期セットを今のデータに追加する。追加した星の数を返す */
-  addStarterSet(): number;
+  addStarterSet(): Promise<number>;
   /** 初期セットをまとめて削除する（自分で記述を足した星は残す）。削除した星の数を返す */
   removeStarterSet(): number;
 }
@@ -127,7 +129,9 @@ function collectUnknown(d: Data): Data {
     referenced.add(r.sourceNodeId);
     referenced.add(r.targetNodeId);
   }
-  const nodes = d.nodes.filter((n) => n.status === 'known' || referenced.has(n.id));
+  // 「広げる」で生まれた星は、もとの星が（登録済みのまま）残っている間は残す
+  const known = new Set(d.nodes.filter((n) => n.status === 'known').map((n) => n.id));
+  const nodes = d.nodes.filter((n) => n.status === 'known' || referenced.has(n.id) || (n.seedOf && known.has(n.seedOf)));
   return nodes.length === d.nodes.length ? d : { ...d, nodes };
 }
 
@@ -168,9 +172,9 @@ export const useCosmos = create<CosmosState>((set, get) => {
       try {
         let data = await repo.load();
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
-        const STARTER_FLAG = 'starter-v3-added';
+        const STARTER_FLAG = 'starter-v4-added';
         if (!data) {
-          data = createSampleData();
+          data = await createSampleData();
           await repo.save(data);
           await repo.setFlag(STARTER_FLAG);
           set({ ...snapshotOf(data), loaded: true });
@@ -183,7 +187,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
         if (removedBefore) await repo.setFlag(STARTER_FLAG);
         else if (!(await repo.getFlag(STARTER_FLAG))) {
           const before = snapshotOf(data);
-          const { data: merged, added } = mergeDataset(before, createSampleData());
+          const { data: merged, added } = mergeDataset(before, await createSampleData());
           await repo.save({ version: 2, ...merged });
           await repo.setFlag(STARTER_FLAG);
           set({
@@ -199,7 +203,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
         }
         set({ ...snapshotOf(data), loaded: true });
       } catch (e) {
-        const data = createSampleData();
+        const data = await createSampleData();
         set({
           ...snapshotOf(data),
           loaded: true,
@@ -497,13 +501,38 @@ export const useCosmos = create<CosmosState>((set, get) => {
       set({ expanded: true });
     },
 
+    seedStars(starId, names, limit) {
+      const { nodes } = get();
+      const parent = nodes.find((n) => n.id === starId);
+      if (!parent) return 0;
+      const exists = new Set<string>();
+      for (const n of nodes) for (const nm of [n.title, displayName(n), ...n.aliases]) exists.add(nm);
+      const fresh = [...new Set(names)].filter((nm) => nm.length >= 2 && !exists.has(nm)).slice(0, limit);
+      const t = nowIso();
+      const created: KnowledgeNode[] = fresh.map((title, i) => {
+        // もとの星を中心に、球面上に散らして置く
+        const y = 1 - (2 * (i + 0.5)) / fresh.length;
+        const r = Math.sqrt(1 - y * y);
+        const th = i * 2.399 + Math.random();
+        const R = 2.6 + Math.random() * 1.2;
+        return {
+          id: newId(), status: 'unknown', title, qualifier: '', aliases: [], kind: 'other', category: '', tags: [],
+          summary: '', importance: 1, origin: 'user', seedOf: starId, createdAt: t, updatedAt: t,
+          position: [parent.position[0] + Math.cos(th) * r * R, parent.position[1] + y * R, parent.position[2] + Math.sin(th) * r * R],
+        };
+      });
+      if (created.length) commit((d) => ({ nodes: [...d.nodes, ...created] }));
+      return created.length;
+    },
+
     setWikiTitle(starId, title) {
       commit((d) => ({ nodes: d.nodes.map((n) => (n.id === starId ? { ...n, wikiTitle: title } : n)) }));
     },
 
-    addStarterSet() {
+    async addStarterSet() {
+      const sample = await createSampleData();
       const before = snapshotOf(get());
-      const { data, added } = mergeDataset(before, createSampleData());
+      const { data, added } = mergeDataset(before, sample);
       set({ ...data, undo: { label: `初期セットを追加しました（${added}個）`, snapshot: before, expiresAt: Date.now() + 8000 } });
       persist();
       return added;

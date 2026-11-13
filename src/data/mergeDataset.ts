@@ -71,8 +71,29 @@ export function mergeDataset(current: Data, incoming: Data): { data: Data; added
       .map((r) => ({ ...r, sourceNodeId: remap.get(r.sourceNodeId) ?? r.sourceNodeId, targetNodeId: remap.get(r.targetNodeId) ?? r.targetNodeId })),
   ];
 
+  // 新しい星は、今の宇宙で同じ分野の星が集まっている場所の近くに置く（星団がばらけないように）
+  const centroid = (list: KnowledgeNode[]) => {
+    const map = new Map<string, { sum: number[]; n: number }>();
+    for (const n of list) {
+      if (n.status !== 'known' || !n.category) continue;
+      const e = map.get(n.category) ?? { sum: [0, 0, 0], n: 0 };
+      n.position.forEach((v, k) => (e.sum[k] += v));
+      e.n++;
+      map.set(n.category, e);
+    }
+    return new Map([...map].map(([k, e]) => [k, e.sum.map((v) => v / e.n)]));
+  };
+  const curC = centroid(current.nodes);
+  const inC = centroid(incoming.nodes);
+  const placed = newNodes.map((n) => {
+    const a = curC.get(n.category);
+    const b = inC.get(n.category);
+    if (!a || !b) return n;
+    return { ...n, position: n.position.map((v, k) => v - b[k] + a[k]) as KnowledgeNode['position'] };
+  });
+
   return {
-    data: { nodes: [...nodes, ...newNodes], statements, sources, relations },
+    data: { nodes: [...nodes, ...placed], statements, sources, relations },
     added: newNodes.filter((n) => n.status === 'known').length + upgrade.size,
   };
 }

@@ -37,6 +37,8 @@ export interface KnowledgeNode {
   origin: StarOrigin;
   /** この星の説明に使うWikipediaの記事名（利用者が選んだもの）。なければ名前で探す */
   wikiTitle?: string;
+  /** 「🌱 広げる」で生まれた星の、もとの星のID（まだ知らない星を残しておく理由になる） */
+  seedOf?: string;
   createdAt: string;
   updatedAt: string;
 }

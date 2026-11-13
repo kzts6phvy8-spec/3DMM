@@ -266,3 +266,20 @@ export async function searchWikiCandidates(title: string, context: string[], sig
     return [];
   }
 }
+
+/**
+ * 「🌱 広げる」の候補：記事の中でリンクされている言葉。
+ * 冒頭の文に出てくる言葉を先に、そのあとは記事の中の順に並べる。
+ */
+export async function fetchSeedCandidates(title: string, signal?: AbortSignal): Promise<string[] | null> {
+  const [summary, links] = await Promise.all([fetchWikiSummary(title, signal), fetchWikiLinkTitles(title, signal)]);
+  if (!links.length) return summary.status === 'error' ? null : [];
+  const intro = summary.status === 'ok' ? summary.extract : '';
+  // 年や日付だけの項目（例：1789年、7月14日）は除く
+  const useful = links.filter(
+    (t) => !/^[0-9０-９]+(年|月|日|世紀)/.test(t) && !/^[0-9０-９.,]+$/.test(t) && !/^[0-9]+月[0-9]+日$/.test(t) && !t.includes('一覧'),
+  );
+  const inIntro = useful.filter((t) => intro.includes(t));
+  const rest = useful.filter((t) => !intro.includes(t));
+  return [...inIntro, ...rest];
+}

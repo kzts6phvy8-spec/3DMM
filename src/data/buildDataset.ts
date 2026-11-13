@@ -197,35 +197,61 @@ function seeded(text: string): () => number {
  */
 function clusterLayout(stars: StarSpec[]): Vec3[] {
   const categories = [...new Set(stars.map((s) => s.category))];
+  const counts = new Map<string, number>();
+  for (const s of stars) counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
   const centers = new Map<string, Vec3>();
+  // 星団の大きさは星の数に合わせ、星団どうしが重ならない距離に中心を並べる
+  const spreadOf = (c: string) => 3 + Math.sqrt(counts.get(c) ?? 1) * 1.15;
+  const R = 8 + Math.sqrt(stars.length) * 1.1;
   categories.forEach((c, i) => {
     // カテゴリーの中心を球面上に均等に並べる
     const y = categories.length === 1 ? 0 : 1 - (2 * i) / (categories.length - 1);
     const r = Math.sqrt(Math.max(0, 1 - y * y));
     const theta = i * 2.399;
-    const R = 9 + categories.length * 0.6;
-    centers.set(c, [Math.cos(theta) * r * R, y * R * 0.7, Math.sin(theta) * r * R]);
+    centers.set(c, [Math.cos(theta) * r * R, y * R * 0.75, Math.sin(theta) * r * R]);
   });
   const pos: Vec3[] = stars.map((s) => {
-    if (s.position) return s.position;
+    if (s.position) return [...s.position] as Vec3;
     const rand = seeded(s.key);
     const c = centers.get(s.category)!;
-    return [c[0] + (rand() - 0.5) * 7, c[1] + (rand() - 0.5) * 5, c[2] + (rand() - 0.5) * 7];
+    const sp = spreadOf(s.category);
+    // 星団の中に、球状に散らす
+    const u = rand() * 2 - 1;
+    const th = rand() * Math.PI * 2;
+    const rr = Math.cbrt(rand()) * sp;
+    const ru = Math.sqrt(1 - u * u);
+    return [c[0] + Math.cos(th) * ru * rr, c[1] + u * rr * 0.8, c[2] + Math.sin(th) * ru * rr];
   });
-  // 近すぎる星を少しずつ押し離す
-  for (let iter = 0; iter < 40; iter++) {
+  // 近すぎる星を少しずつ押し離す（格子に分けて、近くの星どうしだけを比べる）
+  const MIN = 2.0;
+  for (let iter = 0; iter < 30; iter++) {
+    const grid = new Map<string, number[]>();
+    const cell = (p: Vec3) => p.map((v) => Math.floor(v / MIN));
+    pos.forEach((p, i) => {
+      const k = cell(p).join(',');
+      (grid.get(k) ?? grid.set(k, []).get(k)!).push(i);
+    });
+    let moved = false;
     for (let i = 0; i < pos.length; i++) {
-      for (let j = i + 1; j < pos.length; j++) {
-        const d = [pos[j][0] - pos[i][0], pos[j][1] - pos[i][1], pos[j][2] - pos[i][2]];
-        const len = Math.hypot(d[0], d[1], d[2]) || 0.01;
-        if (len >= 2.2) continue;
-        const push = (2.2 - len) / 2 / len;
-        for (let k = 0; k < 3; k++) {
-          if (!stars[i].position) pos[i][k] -= d[k] * push;
-          if (!stars[j].position) pos[j][k] += d[k] * push;
-        }
-      }
+      const [cx, cy, cz] = cell(pos[i]);
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dz = -1; dz <= 1; dz++) {
+            for (const j of grid.get(`${cx + dx},${cy + dy},${cz + dz}`) ?? []) {
+              if (j <= i) continue;
+              const d = [pos[j][0] - pos[i][0], pos[j][1] - pos[i][1], pos[j][2] - pos[i][2]];
+              const len = Math.hypot(d[0], d[1], d[2]) || 0.01;
+              if (len >= MIN) continue;
+              const push = (MIN - len) / 2 / len;
+              moved = true;
+              for (let k = 0; k < 3; k++) {
+                if (!stars[i].position) pos[i][k] -= d[k] * push;
+                if (!stars[j].position) pos[j][k] += d[k] * push;
+              }
+            }
+          }
     }
+    if (!moved) break;
   }
   // 全体の中心を原点にそろえる（カメラが宇宙の中心を向くように）
   const free = pos.filter((_, i) => !stars[i].position);
