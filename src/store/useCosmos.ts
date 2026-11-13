@@ -4,7 +4,6 @@ import { create } from 'zustand';
 import type {
   CosmosData,
   KnowledgeNode,
-  ManualCheck,
   Relation,
   RelationType,
   Source,
@@ -87,7 +86,6 @@ interface CosmosState extends Data {
   addStatement(starId: string, input: StatementInput): Statement;
   updateStatement(id: string, input: StatementInput): void;
   deleteStatement(id: string): void;
-  setCheck(statementId: string, check: ManualCheck, note: string): void;
 
   addSource(input: SourceInput): Source;
   deleteSource(id: string): void;
@@ -97,7 +95,7 @@ interface CosmosState extends Data {
   cancelConnection(): void;
 
   undoLast(): void;
-  /** Wikipediaの概要から選んだ文で星を登録する（出典は自動で付く。確認済みにはしない） */
+  /** Wikipediaの概要から選んだ文で星を登録する（出典は自動で付く） */
   registerFromWikipedia(
     starId: string,
     input: {
@@ -380,7 +378,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
       const t = nowIso();
       const order = Math.max(-1, ...get().statements.filter((s) => s.starId === starId).map((s) => s.order)) + 1;
       const st: Statement = {
-        ...input, id: newId(), starId, manualCheck: null, checkNote: '', order, createdAt: t, updatedAt: t,
+        ...input, id: newId(), starId, order, createdAt: t, updatedAt: t,
       };
       commit((d) => ({
         statements: [...d.statements, st],
@@ -394,11 +392,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
       commit((d) => {
         const statements = d.statements.map((st) => {
           if (st.id !== id) return st;
-          let manualCheck = st.manualCheck;
-          // 本文が変わったら確認し直す必要がある。最後の出典を外したときも同じ
-          if (manualCheck === 'verified' && (st.text !== input.text || input.sourceIds.length === 0)) manualCheck = null;
-          if (input.kind === 'opinion') manualCheck = null;
-          return { ...st, ...input, manualCheck, updatedAt: nowIso() };
+          return { ...st, ...input, updatedAt: nowIso() };
         });
         return collectUnknown({ ...d, statements });
       });
@@ -406,20 +400,6 @@ export const useCosmos = create<CosmosState>((set, get) => {
 
     deleteStatement(id) {
       commit((d) => collectUnknown({ ...d, statements: d.statements.filter((st) => st.id !== id) }));
-    },
-
-    setCheck(statementId, check, note) {
-      const st = get().statements.find((s) => s.id === statementId);
-      if (!st || st.kind === 'opinion') return;
-      if (check === 'verified' && st.sourceIds.length === 0) {
-        set({ error: '「確認済み」にするには、出典を1つ以上付けてください' });
-        return;
-      }
-      commit((d) => ({
-        statements: d.statements.map((s) =>
-          s.id === statementId ? { ...s, manualCheck: check, checkNote: note, updatedAt: nowIso() } : s,
-        ),
-      }));
     },
 
     addSource(input) {
@@ -433,9 +413,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
         sources: d.sources.filter((s) => s.id !== id),
         statements: d.statements.map((st) => {
           if (!st.sourceIds.includes(id)) return st;
-          const sourceIds = st.sourceIds.filter((x) => x !== id);
-          const manualCheck = st.manualCheck === 'verified' && sourceIds.length === 0 ? null : st.manualCheck;
-          return { ...st, sourceIds, manualCheck };
+          return { ...st, sourceIds: st.sourceIds.filter((x) => x !== id) };
         }),
         relations: d.relations.map((r) => (r.sourceIds.includes(id) ? { ...r, sourceIds: r.sourceIds.filter((x) => x !== id) } : r)),
       }));
@@ -458,7 +436,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
       }
       const relation: Relation = {
         id: newId(), sourceNodeId: sourceId, targetNodeId: targetId, relationType: type, explanation,
-        explanationKind, sourceIds: [], manualCheck: null, createdAt: nowIso(),
+        explanationKind, sourceIds: [], createdAt: nowIso(),
       };
       commit((d) => ({ relations: [...d.relations, relation] }));
       set({ pendingConnection: null, connectFromId: null, mode: 'view', selectedId: sourceId });
@@ -500,7 +478,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
         const baseOrder = Math.max(-1, ...d.statements.filter((st) => st.starId === starId).map((st) => st.order)) + 1;
         const added: Statement[] = input.sentences.map((item, i) => ({
           id: newId(), starId, text: typeof item === 'string' ? item : item.text, kind: 'fact',
-          topic: typeof item === 'string' ? '' : item.topic, sourceIds: [source.id], manualCheck: null, checkNote: '',
+          topic: typeof item === 'string' ? '' : item.topic, sourceIds: [source.id],
           order: baseOrder + i, createdAt: t, updatedAt: t,
         }));
         return {

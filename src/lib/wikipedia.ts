@@ -1,5 +1,5 @@
 // Wikipedia（日本語版）の公開APIから、記事の概要を取ってくる。
-// サーバーやAPIキーは不要。取ってきた内容は「出典：Wikipedia」として扱い、確認済みにはしない。
+// サーバーやAPIキーは不要。取ってきた内容は「出典：Wikipedia」として記録する。
 
 export type WikiResult =
   | { status: 'ok'; title: string; description: string; extract: string; url: string }

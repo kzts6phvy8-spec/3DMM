@@ -128,7 +128,7 @@ export function OtherSources({ star, compact = false }: { star: KnowledgeNode; c
               選んだ{chosen.length}件を追加
             </button>
           </div>
-          <p className="muted small license">文章：{OTHER_SITES[result.site].label}（CC BY-SA 4.0）。状態は「出典あり」です。</p>
+          <p className="muted small license">文章：{OTHER_SITES[result.site].label}（CC BY-SA 4.0）。出典は自動で付きます。</p>
         </>
       )}
     </div>

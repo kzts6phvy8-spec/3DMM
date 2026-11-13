@@ -172,7 +172,6 @@ button.danger { color: var(--danger); }
 .sheet > .sheet-handle, .sheet > .breadcrumb, .sheet > .sheet-more, .sheet > .sheet-header, .sheet > .sheet-sub, .sheet > .summary, .sheet > .trivia, .sheet > .sheet-actions { flex-shrink: 0; }
 .sheet-body { flex: 1 1 auto; min-height: 0; }
 .sheet-sub { padding: 2px 16px 0 38px; font-size: 12px; color: var(--muted); }
-.sheet-sub .certainty { color: var(--accent); }
 .summary { margin: 6px 16px 0; line-height: 1.6; }
 .sheet-actions.inline { padding: 8px 0; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
@@ -188,7 +187,6 @@ button.danger { color: var(--danger); }
 .statement.is-opinion .statement-text { font-style: italic; color: #cdd5f5; }
 .statement-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--panel-border); display: flex; flex-direction: column; gap: 8px; }
 .statement-detail h4 { margin: 0; font-size: 12px; color: var(--muted); }
-.check-note { margin: 0; font-size: 13px; color: #b9f5c9; }
 .check-actions, .search-sites, .link-tools, .link-candidates { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .small-btn { min-height: 36px; padding: 0 10px; font-size: 13px; border-radius: 10px; }
 .small-btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
@@ -207,10 +205,7 @@ button.danger { color: var(--danger); }
 .source-add, .source-new, .link-picker { display: flex; flex-direction: column; gap: 6px; }
 .chip.small { min-height: 34px; font-size: 13px; }
 .form-warning { border: 1px solid #ffcf6b; color: #ffe2a3; border-radius: 10px; padding: 8px 10px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.badge.v-unverified { color: #ffb4b4; border-color: #ff8f8f; }
-.badge.v-sourced { color: #ffe27a; border-color: #ffe27a; }
-.badge.v-verified { color: #8dffb0; border-color: #8dffb0; }
-.badge.v-disputed { color: #ff6b8b; border-color: #ff6b8b; }
+.badge.kind-fact { color: #b9c7ff; border-color: #5d6aa0; }
 .badge.kind-opinion { color: #d9b8ff; border-color: #d9b8ff; border-style: dashed; }
 .badge.topic { color: var(--accent); border-color: var(--panel-border); }
 .undo-toast {

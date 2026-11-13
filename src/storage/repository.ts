@@ -19,7 +19,7 @@ const KEY_V2 = 'cosmos-v2';
 export const indexedDbRepository: CosmosRepository = {
   async load() {
     const v2 = await get<CosmosData>(KEY_V2, store);
-    if (v2) return v2;
+    if (v2) return dropCheckFields(v2);
     // 旧い形（v1）のデータがあれば、新しい形に移し替える。v1のデータは消さずに残す
     const v1 = await get<V1Data>(KEY_V1, store);
     if (v1) {
@@ -39,6 +39,19 @@ export const indexedDbRepository: CosmosRepository = {
     await set(`flag:${name}`, true, store);
   },
 };
+
+/**
+ * 以前あった「確認状態」（確認済み・異論あり）の項目を取り除く。
+ * 2026-11-13にファクトチェック機能をなくしたため。出典・事実／意見の区別はそのまま残す。
+ */
+export function dropCheckFields(data: CosmosData): CosmosData {
+  const strip = <T extends object>(item: T): T => {
+    if (!('manualCheck' in item) && !('checkNote' in item)) return item;
+    const { manualCheck: _m, checkNote: _c, ...rest } = item as T & { manualCheck?: unknown; checkNote?: unknown };
+    return rest as T;
+  };
+  return { ...data, statements: data.statements.map(strip), relations: data.relations.map(strip) };
+}
 
 // ---- v1（最初のプロトタイプ）からの移行 ----
 
@@ -103,8 +116,6 @@ export function migrateV1(v1: V1Data): CosmosData {
         kind: 'fact',
         topic: '',
         sourceIds,
-        manualCheck: null,
-        checkNote: '',
         order: 0,
         createdAt: n.createdAt,
         updatedAt: n.updatedAt,
@@ -115,7 +126,6 @@ export function migrateV1(v1: V1Data): CosmosData {
     ...r,
     explanationKind: 'fact',
     sourceIds: [],
-    manualCheck: null,
   }));
   return { version: 2, nodes, statements, sources, relations };
 }

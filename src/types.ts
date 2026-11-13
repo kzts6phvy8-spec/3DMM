@@ -43,19 +43,6 @@ export interface KnowledgeNode {
   updatedAt: string;
 }
 
-/** 人が付ける確認の判断。自動で付けることは禁止 */
-export type ManualCheck = 'verified' | 'disputed' | null;
-
-/** 表示用の確認状態（自動の判定と人の判断を合わせたもの） */
-export type Verification = 'unverified' | 'sourced' | 'verified' | 'disputed';
-
-export const VERIFICATION_LABELS: Record<Verification, string> = {
-  unverified: '未確認',
-  sourced: '出典あり',
-  verified: '確認済み',
-  disputed: '異論あり',
-};
-
 /** 記述（1つの文）。本文中の [[@星ID]] は別の星へのリンク */
 export interface Statement {
   id: string;
@@ -65,8 +52,6 @@ export interface Statement {
   /** 任意の話題。例：語源・定義・歴史 */
   topic: string;
   sourceIds: string[];
-  manualCheck: ManualCheck;
-  checkNote: string;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -112,7 +97,6 @@ export interface Relation {
   explanation: string; // つながる理由
   explanationKind: 'fact' | 'opinion';
   sourceIds: string[];
-  manualCheck: ManualCheck;
   createdAt: string;
 }
 
