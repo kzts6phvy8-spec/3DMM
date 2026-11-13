@@ -160,9 +160,12 @@ src/
   storage/repository.ts   保存処理（IndexedDB）と旧形式からの移行
   store/useCosmos.ts      アプリの状態と操作（Zustand）
   data/buildDataset.ts    初期データを [[名前]] 形式から組み立てる
+  data/vital.json         初期セット第3弾（Wikipedia基本1000項目。scripts/build_vital.py で作成）
+  components/StarField.tsx 星をまとめて描く・タップ／長押しの判定（星が多くても軽く）
   sampleData.ts           初回起動時のサンプル
   components/             画面部品（3D空間・ボトムシート・フォーム）
 ```
 
 - 開発サーバー: `npm run dev`
 - ビルド確認: `npm run build`
+- 初期セット第3弾の作り直し: `python3 scripts/build_vital.py <既存の星の名前一覧.json> src/data/vital.json`（Wikipediaの制限に配慮して待ちながら取得する）

@@ -43,6 +43,13 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
     [nodes],
   );
 
+  // 星ごとの記述をまとめておく（検索のたびに全記述を探し直さないため）
+  const byStar = useMemo(() => {
+    const m = new Map<string, typeof statements>();
+    for (const st of statements) (m.get(st.starId) ?? m.set(st.starId, []).get(st.starId)!).push(st);
+    return m;
+  }, [statements]);
+
   const results = useMemo(() => {
     const q = normalize(query);
     const filtering = category || kind || verification;
@@ -51,7 +58,7 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
     for (const n of nodes) {
       if (category && n.category !== category) continue;
       if (kind && n.kind !== kind) continue;
-      const own = statements.filter((s) => s.starId === n.id);
+      const own = byStar.get(n.id) ?? [];
       if (verification && !own.some((s) => statementVerification(s) === verification)) continue;
       let score = q ? 0 : 1;
       let snippet = n.summary;
@@ -79,7 +86,7 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
       if (score > 0) out.push({ node: n, score, snippet: snippet || (own[0] ? plainText(own[0].text, byId) : '') });
     }
     return out.sort((a, b) => b.score - a.score || a.node.title.localeCompare(b.node.title, 'ja')).slice(0, 80);
-  }, [query, category, kind, verification, nodes, statements, sources, byId]);
+  }, [query, category, kind, verification, nodes, byStar, sources, byId]);
 
   const chip = <T,>(value: T, current: T | null, set: (v: T | null) => void, label: string) => (
     <button key={String(value)} className={current === value ? 'chip small active' : 'chip small'} onClick={() => set(current === value ? null : value)}>
@@ -312,8 +319,9 @@ export function MorePanel() {
       <h3>初期セット</h3>
       <div className="more-actions">
         <button
-          onClick={() => {
-            const n = addStarterSet();
+          onClick={async () => {
+            setMessage('初期セットを読み込んでいます…');
+            const n = await addStarterSet();
             setMessage(n > 0 ? `初期セットを追加しました（${n}個）` : '初期セットはすでに入っています（足りない記述だけ補いました）');
           }}
         >

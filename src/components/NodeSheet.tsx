@@ -16,6 +16,7 @@ import {
 import { SEARCH_SITES, openSearch } from '../lib/externalSearch';
 import { WikipediaPreview } from './WikipediaPreview';
 import { SuggestionList } from './SuggestionList';
+import { SeedButton } from './SeedButton';
 import { WikiStatementSuggestions } from './WikiStatementSuggestions';
 
 /** 本文中のリンクを押せる形で表示する */
@@ -262,7 +263,16 @@ export function NodeSheet({
         {breadcrumb}
         {header}
         <div className="sheet-body">
-          <p className="muted">まだ知らない星です。どこかの記述でリンクされていますが、中身はまだありません。</p>
+          <p className="muted">
+            まだ知らない星です。
+            {node.seedOf && byId.get(node.seedOf) ? (
+              <>
+                「<button className="link-like" onClick={() => navigate(node.seedOf!)}>{displayName(byId.get(node.seedOf)!)}</button>」から広げた言葉です。
+              </>
+            ) : (
+              'どこかの記述でリンクされていますが、中身はまだありません。'
+            )}
+          </p>
           <WikipediaPreview key={node.id} starId={node.id} title={node.title} />
           <SearchButtons query={node.title} />
           <div className="sheet-actions inline">
@@ -375,6 +385,7 @@ export function NodeSheet({
           </ul>
 
           <SuggestionList key={node.id} star={node} />
+          <SeedButton key={`seed-${node.id}`} star={node} />
 
           {backlinks.length > 0 && (
             <>
