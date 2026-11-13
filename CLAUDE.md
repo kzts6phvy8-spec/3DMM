@@ -168,6 +168,7 @@ src/
   store/useCosmos.ts      アプリの状態と操作（Zustand）
   data/buildDataset.ts    初期データを [[名前]] 形式から組み立てる
   data/vital.json         初期セット第3弾（Wikipedia基本1000項目。scripts/build_vital.py で作成）
+  data/vital10k.json      初期セット第4弾（Wikipedia「1万の項目」から約8,700個。scripts/build_vital10k.py で作成）
   components/StarField.tsx 星をまとめて描く・タップ／長押しの判定（星が多くても軽く）
   sampleData.ts           初回起動時のサンプル
   components/             画面部品（3D空間・ボトムシート・フォーム）
@@ -177,3 +178,5 @@ src/
 - ビルド確認: `npm run build`
 - 言葉クイズの問題の作り直し: `python3 scripts/build_quiz.py <Wikipediaの要約.json> src/data/quizWords.json`
 - 初期セット第3弾の作り直し: `python3 scripts/build_vital.py <既存の星の名前一覧.json> src/data/vital.json`（Wikipediaの制限に配慮して待ちながら取得する）
+- 初期セット第4弾の作り直し: `python3 scripts/fetch_vital10k.py <作業フォルダ>` で記事の冒頭を取得し、`python3 scripts/build_vital10k.py <一覧.json> <記事.json> <既存の星の名前.json> src/data/vital10k.json`
+- 初期セットを増やしたら、`src/store/useCosmos.ts` の `STARTER_FLAG` の版を上げる（使っている端末に1回だけ追加される）
