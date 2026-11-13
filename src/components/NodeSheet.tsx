@@ -14,6 +14,7 @@ import {
   statementVerification,
 } from '../lib/knowledge';
 import { SEARCH_SITES, openSearch } from '../lib/externalSearch';
+import { WikipediaPreview } from './WikipediaPreview';
 
 /** 本文中のリンクを押せる形で表示する */
 function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeNode> }) {
@@ -235,9 +236,10 @@ export function NodeSheet({
         {header}
         <div className="sheet-body">
           <p className="muted">まだ知らない星です。どこかの記述でリンクされていますが、中身はまだありません。</p>
+          <WikipediaPreview key={node.id} starId={node.id} title={node.title} />
           <SearchButtons query={node.title} />
           <div className="sheet-actions inline">
-            <button className="primary" onClick={() => onEdit(node.id)}>＋ この星を登録する</button>
+            <button onClick={() => onEdit(node.id)}>＋ 自分で書いて登録する</button>
           </div>
           <h3>この言葉が出てくる記述（{backlinks.length}）</h3>
           <ul className="backlinks">
