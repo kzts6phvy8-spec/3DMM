@@ -18,7 +18,7 @@ export function SyncConflictDialog() {
   const ownThere = conflict.remote.data.nodes.filter((n) => n.status === 'known' && n.origin !== 'starter').length;
 
   return (
-    <div className="modal-backdrop streak-backdrop">
+    <div className="modal-backdrop sync-backdrop">
       <section className="streak-card sync-conflict" role="dialog" aria-label="どちらのデータを残すか">
         <p className="streak-big">どちらを残しますか？</p>
         <p className="streak-text">

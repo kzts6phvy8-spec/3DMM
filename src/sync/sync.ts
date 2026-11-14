@@ -217,11 +217,12 @@ function applyRemote(p: SyncPayload) {
   }
 }
 
-/** この端末に、自分で作ったもの（初期セット以外の星・記述・出典、結んだつながり）があるか */
+/** この端末に、自分で作ったもの（初期セット以外の星・記述、自分で結んだつながり）があるか */
 export function hasOwnContent(): boolean {
   const s = useCosmos.getState();
+  // 初期セットのものは、ID が starter- で始まる
   return (
-    s.relations.length > 0 ||
+    s.relations.some((r) => !r.id.startsWith('starter-')) ||
     s.nodes.some((n) => n.status === 'known' && n.origin !== 'starter') ||
     s.statements.some((st) => !st.id.startsWith('starter-'))
   );
