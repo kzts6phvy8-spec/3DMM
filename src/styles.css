@@ -402,7 +402,7 @@ button.danger { color: var(--danger); }
 .neighbor-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
 
 /* 起動時の連続記録のカード */
-.streak-backdrop { align-items: center; z-index: 300; padding: 16px; }
+.streak-backdrop, .sync-backdrop { align-items: center; z-index: 300; padding: 16px; }
 .streak-card {
   width: 100%; max-width: 360px; background: #10142a; border: 1px solid var(--panel-border); border-radius: 20px;
   padding: 22px 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
@@ -411,3 +411,9 @@ button.danger { color: var(--danger); }
 .streak-text { margin: 0; line-height: 1.6; }
 .streak-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
 .streak-actions button { min-height: 44px; }
+
+/* 端末の同期 */
+.sync-form { display: flex; flex-direction: column; gap: 10px; }
+.sync-form input { min-height: 44px; font-size: 16px; }
+.more-message.is-error { color: #ffb4b4; }
+.sync-compare { width: 100%; text-align: left; }

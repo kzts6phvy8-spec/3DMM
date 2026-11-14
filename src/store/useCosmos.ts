@@ -90,7 +90,8 @@ interface CosmosState extends Data {
   openPanel(panel: Panel): void;
   setLabelDensity(v: LabelDensity): void;
   /** バックアップから復元する（今のデータを置き換える。直後は元に戻せる） */
-  replaceAll(data: CosmosData): void;
+  /** label を null にすると「元に戻す」を出さない */
+  replaceAll(data: CosmosData, label?: string | null): void;
   setMode(mode: Mode): void;
   focusOn(id: string): void;
   tapNode(id: string): void;
@@ -337,13 +338,13 @@ export const useCosmos = create<CosmosState>((set, get) => {
       set({ labelDensity: v });
     },
 
-    replaceAll(data) {
+    replaceAll(data, label = 'バックアップから復元しました') {
       const before = snapshotOf(get());
       set({
         ...snapshotOf(data),
         selectedId: null,
         trail: [],
-        undo: { label: 'バックアップから復元しました', snapshot: before, expiresAt: Date.now() + 10000 },
+        undo: label === null ? null : { label, snapshot: before, expiresAt: Date.now() + 10000 },
       });
       persist();
     },

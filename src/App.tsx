@@ -7,6 +7,8 @@ import { RelationForm } from './components/RelationForm';
 import { StatementForm } from './components/StatementForm';
 import { LabelLayer } from './components/LabelLayer';
 import { StreakCard } from './components/StreakCard';
+import { SyncConflictDialog } from './components/SyncConflictDialog';
+import { startSync } from './sync/sync';
 import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
 import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
 import { ReportPanel } from './components/ReportPanel';
@@ -37,6 +39,11 @@ export default function App() {
     useCosmos.getState().init();
   }, []);
 
+  // 宇宙を読み込んだあとで、同期を始める（前にログインしていれば、そのまま同期する）
+  useEffect(() => {
+    if (loaded) void startSync();
+  }, [loaded]);
+
   if (!loaded) return <div className="loading">宇宙を読み込み中…</div>;
 
   return (
@@ -51,6 +58,7 @@ export default function App() {
       )}
       <TopBar onAdd={() => setForm({ editId: null })} />
       <StreakCard />
+      <SyncConflictDialog />
       <ModeBanner />
       <BottomNav onAdd={() => setForm({ editId: null })} />
       <NodeSheet onEdit={(id) => setForm({ editId: id })} onEditStatement={(starId, statementId) => setStForm({ starId, statementId })} />

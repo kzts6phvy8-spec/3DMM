@@ -4,6 +4,7 @@ import { useCosmos, type LabelDensity } from '../store/useCosmos';
 import { dropCheckFields } from '../storage/repository';
 import { sanitizeEngagement, type EngagementMap } from '../lib/engagement';
 import { sanitizeDays } from '../lib/streak';
+import { SyncSection } from './SyncSection';
 import { STAR_KINDS, type CosmosData, type KnowledgeNode, type StarKind } from '../types';
 import { categoryColor } from '../lib/util';
 import { displayName, parseLinkIds } from '../lib/knowledge';
@@ -274,6 +275,8 @@ export function MorePanel() {
         />
       </div>
       {message && <p className="more-message">{message}</p>}
+
+      <SyncSection />
 
       <h3>初期セット</h3>
       <div className="more-actions">
