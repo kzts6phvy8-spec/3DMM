@@ -133,6 +133,15 @@ Webとアプリで共通の決まりとして、言葉だけで書く。
   - 例：「事実5件中、確認済み4件」
 - 宇宙の中で、確かな星とそうでない星を見分けるのに使う（見せ方は表層で決める）。
 
+### 同期（2026-11-14に追加）
+
+- Supabase に預ける（`supabase/schema.sql`）。
+  - `profiles`：利用者ごとのプラン（free／paid）。登録すると自動で free の行ができる。
+  - `cosmos_sync`：1人1行。`data` は宇宙のデータ全体（JSON）を gzip で圧縮して base64 にした文字。`version` は預けるたびに1ずつ増える。
+  - `push_cosmos(expected_version, payload, device)`：この端末が知っている番号と保存されている番号が同じときだけ預ける（違えば conflict）。
+- 端末ごとの記録（`localStorage` の `cosmos-sync`）：最後にそろえた番号、それ以降に変更があったか、最後に同期した時刻。
+- ログインの情報は Supabase のライブラリが `localStorage` に持つ。
+
 ### 連続記録（2026-11-14に追加）
 
 - 知識のデータとは別に、`activity-v1` に「クイズ・パズルをやった日（YYYY-MM-DD）の一覧」として保存する。

@@ -98,6 +98,7 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 - **意味のつながり（Relation）**：自分で結ぶ線。理由の事実／意見の区別と出典を持つ。
 - **言及のつながり**：記述のリンクから自動で計算する。保存しない。
 - **関わり方の記録**：星を開いた回数など。`src/lib/engagement.ts`。保存キー `engagement-v1`（知識のデータとは別）。バックアップにも含める。
+- **同期**：Supabase に預ける（`src/sync/`、表と決まりは `supabase/schema.sql`）。有料（`profiles.plan = 'paid'`）の本人だけが読み書きできる。アプリに入れてよいのは公開してよい鍵（publishable）だけ。秘密の鍵（secret / service_role）は絶対に入れない。
 - **連続記録**：クイズ・パズルをやった日の一覧。`src/lib/streak.ts`。保存キー `activity-v1`（知識のデータとは別）。バックアップにも含める（復元時は足し合わせる）。
 - **確認状態はない**（2026-11-13に廃止）。旧データの `manualCheck`・`checkNote` は、読み込み時とバックアップ復元時に `dropCheckFields` で取り除く。
 - 保存キー：`cosmos-v2`。旧形式 `cosmos-v1` は読み込み時に移行し、旧データは消さずに残す。
@@ -137,6 +138,8 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 
 最初から全機能を実装しないこと。最初の段階では、AI機能・会員登録・課金・クラウド同期を実装しない。
 
+- 2026-11-14：利用者の要望で、端末の同期（有料プランの機能）とそのためのログインを追加した（docs/ux/02-scope.md F18）。支払いの仕組みはまだない。
+
 ## 11. 完成の定義
 
 MVPは、利用者が自分の知識を登録し、知識同士を接続し、iPhoneの3D宇宙空間で自由に探索でき、データを保存・復元できる状態を指す。
@@ -163,7 +166,8 @@ src/
   lib/compare.ts          友達の宇宙と重ねる（宇宙カードの作成・読み込み・比較）
   lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
   lib/streak.ts           毎日の連続記録（やった日の一覧から日数を数える）。起動時のカードは components/StreakCard.tsx
-  lib/plan.ts             利用プラン（無料／有料）。課金の仕組みはまだなく、常に無料
+  lib/plan.ts             利用プラン（無料／有料）。課金の仕組みはまだなく、常に無料（同期の有料かどうかは Supabase の profiles で決まる）
+  sync/                   端末の同期（config：接続先と公開してよい鍵／payload：圧縮／sync：ログイン・そろえ方）
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/warmup.ts           手が空いているときに、検索の索引などの重い下ごしらえを先に済ませる
   lib/labelRegistry.ts    星の名前ラベルの要素（決まった数を使い回す。星が多くても軽く）

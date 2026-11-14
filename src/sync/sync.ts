@@ -92,6 +92,30 @@ function client(): Promise<SupabaseClient> {
 
 let session: Session | null = null;
 
+/** この端末に、前にログインした記録が残っているか（Supabase のライブラリは sb-〇〇-auth-token に保存する） */
+function hasSavedLogin(): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) ?? '';
+      if (k.startsWith('sb-') && k.endsWith('-auth-token')) return true;
+    }
+  } catch {
+    return true; // わからないときは、確かめに行く
+  }
+  return false;
+}
+let listening = false;
+/** ログアウト・鍵の更新を見張る（1回だけ登録する） */
+async function listenAuth() {
+  if (listening) return;
+  listening = true;
+  const sb = await client();
+  sb.auth.onAuthStateChange((event, s) => {
+    if (event === 'SIGNED_OUT') void afterLogin(null);
+    else if (event === 'TOKEN_REFRESHED') session = s;
+  });
+}
+
 const errorText = (e: unknown) => (e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e));
 
 /** ログインの失敗理由を、わかる言葉にする */
@@ -134,13 +158,12 @@ async function afterLogin(s: Session | null) {
 /** 起動したときに呼ぶ。前にログインしていれば、そのまま同期を始める */
 export async function startSync() {
   if (!syncConfigured()) return;
+  // 一度もログインしていない端末では、Supabase のライブラリを読み込まない（起動を軽くするため）
+  if (!hasSavedLogin()) return;
   const sb = await client();
   const { data } = await sb.auth.getSession();
+  await listenAuth();
   await afterLogin(data.session);
-  sb.auth.onAuthStateChange((event, s) => {
-    if (event === 'SIGNED_OUT') void afterLogin(null);
-    else if (event === 'TOKEN_REFRESHED') session = s;
-  });
 }
 
 export async function signIn(email: string, password: string): Promise<string | null> {
@@ -148,6 +171,7 @@ export async function signIn(email: string, password: string): Promise<string | 
     const sb = await client();
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) return authMessage(error);
+    await listenAuth();
     await afterLogin(data.session);
     return null;
   } catch (e) {
@@ -162,6 +186,7 @@ export async function signUp(email: string, password: string): Promise<{ error: 
     const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) return { error: authMessage(error), needConfirm: false };
     if (data.session) {
+      await listenAuth();
       await afterLogin(data.session);
       return { error: null, needConfirm: false };
     }
