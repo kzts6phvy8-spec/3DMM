@@ -180,10 +180,11 @@ src/
   components/StarField.tsx 星をまとめて描く・タップ／長押しの判定（星が多くても軽く）
   sampleData.ts           初回起動時のサンプル
   components/             画面部品（3D空間・ボトムシート・フォーム）
+  chain/                  Knowledge Chain（知識のつながりをたどる探索ゲーム）の試作品。3Dのアプリとは独立。仕様は docs/chain/spec.md
 ```
 
 - 開発サーバー: `npm run dev`
-- ビルド確認: `npm run build`
+- ビルド確認: `npm run build`（最初に Knowledge Chain のステージの検証 `npm run validate:chain` が走る）
 - 言葉クイズの問題の作り直し: `python3 scripts/build_quiz.py <Wikipediaの要約.json> src/data/quizWords.json`
 - 初期セット第3弾の作り直し: `python3 scripts/build_vital.py <既存の星の名前一覧.json> src/data/vital.json`（Wikipediaの制限に配慮して待ちながら取得する）
 - 初期セット第4弾の作り直し: `python3 scripts/fetch_vital10k.py <作業フォルダ>` で記事の冒頭を取得し、`python3 scripts/build_vital10k.py <一覧.json> <記事.json> <既存の星の名前.json> src/data/vital10k.json`
