@@ -98,6 +98,7 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 - **意味のつながり（Relation）**：自分で結ぶ線。理由の事実／意見の区別と出典を持つ。
 - **言及のつながり**：記述のリンクから自動で計算する。保存しない。
 - **関わり方の記録**：星を開いた回数など。`src/lib/engagement.ts`。保存キー `engagement-v1`（知識のデータとは別）。バックアップにも含める。
+- **連続記録**：クイズ・パズルをやった日の一覧。`src/lib/streak.ts`。保存キー `activity-v1`（知識のデータとは別）。バックアップにも含める（復元時は足し合わせる）。
 - **確認状態はない**（2026-11-13に廃止）。旧データの `manualCheck`・`checkNote` は、読み込み時とバックアップ復元時に `dropCheckFields` で取り除く。
 - 保存キー：`cosmos-v2`。旧形式 `cosmos-v1` は読み込み時に移行し、旧データは消さずに残す。
 - 削除や編集で整合性が壊れないようにする。
@@ -161,6 +162,7 @@ src/
   lib/puzzle.ts           毎日のつながりパズル（問題の決め方・最短の道のり）
   lib/compare.ts          友達の宇宙と重ねる（宇宙カードの作成・読み込み・比較）
   lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
+  lib/streak.ts           毎日の連続記録（やった日の一覧から日数を数える）。起動時のカードは components/StreakCard.tsx
   lib/plan.ts             利用プラン（無料／有料）。課金の仕組みはまだなく、常に無料
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/warmup.ts           手が空いているときに、検索の索引などの重い下ごしらえを先に済ませる

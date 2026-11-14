@@ -109,6 +109,8 @@ export function QuizPanel() {
     saveProgress(next);
     setResult({ title: question.word.title, picked: i });
     setMade(null);
+    // 1問答えたら、今日の連続記録をつける
+    useCosmos.getState().recordActivity();
   };
 
   const existing = (title: string) => nodes.find((n) => normalize(n.title) === normalize(title));

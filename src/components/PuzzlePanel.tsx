@@ -80,6 +80,8 @@ export function PuzzlePanel() {
   const move = (id: string) => {
     const path = [...current.path, id];
     update({ ...current, path, moves: current.moves + 1, done: id === puzzle.goal });
+    // ゴールしたら、今日の連続記録をつける
+    if (id === puzzle.goal) useCosmos.getState().recordActivity();
   };
   const back = () => {
     if (current.path.length < 2) return;

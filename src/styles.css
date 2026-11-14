@@ -400,3 +400,14 @@ button.danger { color: var(--danger); }
 .neighbor-chip.is-unknown { color: var(--muted); font-style: italic; }
 .neighbor-chip.more { color: var(--accent); }
 .neighbor-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+
+/* 起動時の連続記録のカード */
+.streak-backdrop { align-items: center; z-index: 300; padding: 16px; }
+.streak-card {
+  width: 100%; max-width: 360px; background: #10142a; border: 1px solid var(--panel-border); border-radius: 20px;
+  padding: 22px 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+}
+.streak-big { margin: 0; font-size: 28px; font-weight: 700; }
+.streak-text { margin: 0; line-height: 1.6; }
+.streak-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+.streak-actions button { min-height: 44px; }
