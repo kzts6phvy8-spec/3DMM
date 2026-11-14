@@ -15,6 +15,8 @@ import { createSampleData } from '../sampleData';
 import { mergeDataset, removeStarter } from '../data/mergeDataset';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
+import { addDay, mergeDays } from '../lib/streak';
+import { dateKey } from '../lib/puzzle';
 import type { CosmosCard } from '../lib/compare';
 import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 import { scheduleWarmup } from '../lib/warmup';
@@ -62,6 +64,8 @@ interface CosmosState extends Data {
   draggingId: string | null;
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
   engagement: EngagementMap;
+  /** 連続記録：クイズ・パズルをやった日の一覧 */
+  activityDays: string[];
   /** 友達の宇宙と重ねて表示しているとき：友達の宇宙カード */
   overlay: { card: CosmosCard } | null;
   /** 直前の削除を「元に戻す」ための控え */
@@ -73,6 +77,9 @@ interface CosmosState extends Data {
   setOverlay(overlay: { card: CosmosCard } | null): void;
   /** バックアップにあった関わり方の記録を、今の記録に合わせる（減らさない） */
   mergeEngagementFrom(map: EngagementMap): void;
+  /** 今日、クイズかパズルをやったと記録する（連続記録） */
+  recordActivity(): void;
+  mergeActivityFrom(days: string[]): void;
   select(id: string | null): void;
   setExpanded(v: boolean): void;
   /** リンクなどで別の星へ移動する（道のりに記録し、視点も動かす） */
@@ -186,12 +193,13 @@ export const useCosmos = create<CosmosState>((set, get) => {
     labelDensity: loadDensity(),
     draggingId: null,
     engagement: {},
+    activityDays: [],
     overlay: null,
     undo: null,
 
     async init() {
       try {
-        set({ engagement: await repo.loadEngagement() });
+        set({ engagement: await repo.loadEngagement(), activityDays: await repo.loadActivity() });
       } catch {
         // 関わり方の記録が読めなくても、知識のデータは使えるようにする
       }
@@ -266,6 +274,22 @@ export const useCosmos = create<CosmosState>((set, get) => {
       const engagement = mergeEngagement(get().engagement, map);
       set({ engagement });
       repo.saveEngagement(engagement).catch(() => undefined);
+    },
+
+    recordActivity() {
+      const before = get().activityDays;
+      const activityDays = addDay(before, dateKey(new Date()));
+      if (activityDays === before) return;
+      set({ activityDays });
+      repo.saveActivity(activityDays).catch((e: unknown) => {
+        set({ error: `連続記録を保存できませんでした: ${e instanceof Error ? e.message : String(e)}` });
+      });
+    },
+
+    mergeActivityFrom(days) {
+      const activityDays = mergeDays(get().activityDays, days);
+      set({ activityDays });
+      repo.saveActivity(activityDays).catch(() => undefined);
     },
 
     select(id) {

@@ -2,6 +2,7 @@
 // 将来クラウド同期に差し替えるときもこのファイルだけ変えればよい。
 import { createStore, get, set } from 'idb-keyval';
 import { sanitizeEngagement, type EngagementMap } from '../lib/engagement';
+import { sanitizeDays } from '../lib/streak';
 import type { CosmosData, KnowledgeNode, Relation, Source, Statement, Vec3 } from '../types';
 
 export interface CosmosRepository {
@@ -14,12 +15,16 @@ export interface CosmosRepository {
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
   loadEngagement(): Promise<EngagementMap>;
   saveEngagement(map: EngagementMap): Promise<void>;
+  /** 連続記録（クイズ・パズルをやった日の一覧）。知識のデータとは別に保存する */
+  loadActivity(): Promise<string[]>;
+  saveActivity(days: string[]): Promise<void>;
 }
 
 const store = createStore('knowledge-cosmos', 'data');
 const KEY_V1 = 'cosmos-v1';
 const KEY_V2 = 'cosmos-v2';
 const KEY_ENGAGEMENT = 'engagement-v1';
+const KEY_ACTIVITY = 'activity-v1';
 
 export const indexedDbRepository: CosmosRepository = {
   async load() {
@@ -48,6 +53,12 @@ export const indexedDbRepository: CosmosRepository = {
   },
   async saveEngagement(map) {
     await set(KEY_ENGAGEMENT, map, store);
+  },
+  async loadActivity() {
+    return sanitizeDays(await get(KEY_ACTIVITY, store));
+  },
+  async saveActivity(days) {
+    await set(KEY_ACTIVITY, days, store);
   },
 };
 

@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useCosmos, type LabelDensity } from '../store/useCosmos';
 import { dropCheckFields } from '../storage/repository';
 import { sanitizeEngagement, type EngagementMap } from '../lib/engagement';
+import { sanitizeDays } from '../lib/streak';
 import { STAR_KINDS, type CosmosData, type KnowledgeNode, type StarKind } from '../types';
 import { categoryColor } from '../lib/util';
 import { displayName, parseLinkIds } from '../lib/knowledge';
@@ -183,7 +184,7 @@ function exportFileName() {
 }
 
 /** 読み込んだJSONが、この宇宙のバックアップとして正しい形かを確かめる */
-function parseBackup(text: string): { data: CosmosData; engagement: EngagementMap } {
+function parseBackup(text: string): { data: CosmosData; engagement: EngagementMap; activity: string[] } {
   const raw = JSON.parse(text);
   const d = raw?.app === 'knowledge-cosmos' ? raw.data : raw;
   const ok = d && Array.isArray(d.nodes) && Array.isArray(d.statements) && Array.isArray(d.sources) && Array.isArray(d.relations);
@@ -195,7 +196,7 @@ function parseBackup(text: string): { data: CosmosData; engagement: EngagementMa
   const relations = d.relations.filter((r: { sourceNodeId: string; targetNodeId: string }) => ids.has(r.sourceNodeId) && ids.has(r.targetNodeId));
   const data = dropCheckFields({ version: 2, nodes: d.nodes, statements, sources: d.sources, relations });
   // 関わり方の記録（古いバックアップにはない）
-  return { data, engagement: sanitizeEngagement(raw?.engagement) };
+  return { data, engagement: sanitizeEngagement(raw?.engagement), activity: sanitizeDays(raw?.activity) };
 }
 
 export function MorePanel() {
@@ -204,7 +205,7 @@ export function MorePanel() {
   const sources = useCosmos((s) => s.sources);
   const relations = useCosmos((s) => s.relations);
   const labelDensity = useCosmos((s) => s.labelDensity);
-  const { setLabelDensity, addStarterSet, removeStarterSet, replaceAll, openPanel, mergeEngagementFrom } = useCosmos.getState();
+  const { setLabelDensity, addStarterSet, removeStarterSet, replaceAll, openPanel, mergeEngagementFrom, mergeActivityFrom } = useCosmos.getState();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -213,7 +214,7 @@ export function MorePanel() {
   const starterCount = nodes.filter((n) => n.origin === 'starter' && n.status === 'known').length;
 
   const doExport = () => {
-    const payload = { app: 'knowledge-cosmos', version: 2, exportedAt: new Date().toISOString(), data: { nodes, statements, sources, relations }, engagement: useCosmos.getState().engagement };
+    const payload = { app: 'knowledge-cosmos', version: 2, exportedAt: new Date().toISOString(), data: { nodes, statements, sources, relations }, engagement: useCosmos.getState().engagement, activity: useCosmos.getState().activityDays };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -228,11 +229,12 @@ export function MorePanel() {
 
   const doImport = async (file: File) => {
     try {
-      const { data, engagement } = parseBackup(await file.text());
+      const { data, engagement, activity } = parseBackup(await file.text());
       const n = data.nodes.filter((x) => x.status === 'known').length;
       if (!window.confirm(`今のデータ（星${known}個）を、バックアップのデータ（星${n}個）で置き換えます。\nよろしいですか？（直後は「元に戻す」ができます）`)) return;
       replaceAll(data);
       mergeEngagementFrom(engagement);
+      mergeActivityFrom(activity);
       openPanel(null);
     } catch (e) {
       setMessage(`復元できませんでした：${e instanceof Error ? e.message : String(e)}`);

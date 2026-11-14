@@ -6,6 +6,7 @@ import { NodeForm } from './components/NodeForm';
 import { RelationForm } from './components/RelationForm';
 import { StatementForm } from './components/StatementForm';
 import { LabelLayer } from './components/LabelLayer';
+import { StreakCard } from './components/StreakCard';
 import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
 import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
 import { ReportPanel } from './components/ReportPanel';
@@ -49,6 +50,7 @@ export default function App() {
         <NodeList />
       )}
       <TopBar onAdd={() => setForm({ editId: null })} />
+      <StreakCard />
       <ModeBanner />
       <BottomNav onAdd={() => setForm({ editId: null })} />
       <NodeSheet onEdit={(id) => setForm({ editId: id })} onEditStatement={(starId, statementId) => setStForm({ starId, statementId })} />
