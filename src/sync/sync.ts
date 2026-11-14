@@ -204,12 +204,16 @@ function currentPayload(): SyncPayload {
   };
 }
 
-/** 保存されているデータを、この端末に入れる（知識のデータは置き換え、記録は足し合わせる） */
-function applyRemote(p: SyncPayload) {
+/**
+ * 保存されているデータを、この端末に入れる（知識のデータは置き換え、記録は足し合わせる）。
+ * withUndo：利用者が自分で選んだときだけ「元に戻す」を出す。
+ * （自動でそろえたときに元に戻すと、次の同期で、ほかの端末の変更を古いデータで上書きしてしまうため）
+ */
+function applyRemote(p: SyncPayload, withUndo = false) {
   applying = true;
   try {
     const { replaceAll, mergeEngagementFrom, mergeActivityFrom } = useCosmos.getState();
-    replaceAll(p.data, 'ほかの端末のデータにそろえました');
+    replaceAll(p.data, withUndo ? '保存されているデータにそろえました' : null);
     mergeEngagementFrom(p.engagement ?? {});
     mergeActivityFrom(Array.isArray(p.activity) ? p.activity : []);
   } finally {
@@ -317,7 +321,7 @@ export async function resolveConflict(keep: 'local' | 'remote') {
   useSync.setState({ status: 'syncing', message: null });
   try {
     if (keep === 'remote') {
-      applyRemote(c.remote);
+      applyRemote(c.remote, true);
       const now = new Date().toISOString();
       writeLocal({ ...local, version: c.remoteVersion, dirty: false, lastSyncedAt: now });
       useSync.setState({ conflict: null, lastSyncedAt: now, status: 'idle' });
