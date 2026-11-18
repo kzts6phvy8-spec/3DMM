@@ -159,7 +159,12 @@ def main():
     sources = [{"key": MEMO, "type": "other", "title": "クイズ年表（利用者のメモ、2026年）"}]
     wp_key = {}
 
+    # 記事が、項目よりずっと広い話題に転送されるもの（出典にしない。出典はメモだけ）
+    BROAD = {"折りたたみ傘", "並行輸入", "パイロットファーム"}
+
     def article_source(name):
+        if name in BROAD:
+            return None
         a = articles.get(name)
         if not a or a["missing"] or a["disambig"] or not a["extract"]:
             return None
