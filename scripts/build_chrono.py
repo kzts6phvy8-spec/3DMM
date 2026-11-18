@@ -2,7 +2,10 @@
 
 使い方：
   node scripts/dump_starter_names.ts > 既存の星.json
-  python3 scripts/build_chrono.py scripts/chrono_timeline.txt 既存の星.json 記事.json src/data/chrono.json 確認用.txt
+  python3 scripts/build_chrono.py scripts/chrono_timeline.txt,scripts/notes_trivia.txt 既存の星.json 記事.json src/data/chrono.json 確認用.txt
+
+- 入力は「,」でつないで複数渡せる（第5弾の年表、第6弾の知識メモ）。順番を変えると星のキーが変わるので、後ろに足していく。
+- 年が空欄の項目（知識メモ）は、年の星を作らず、記述の話題を「雑学」にする。
 
 - 星は2種類作る（利用者の希望）：
   - 出来事などの星（例：関ヶ原の戦い）。すでに初期セットにある星なら、新しく作らずに記述を足す（extra）。
@@ -130,12 +133,14 @@ def main():
             by_title.setdefault(norm(a), []).append((s["key"], d))
 
     entries = []
-    for n, line in enumerate(open(src, encoding="utf-8")):
-        line = line.rstrip("\n")
-        if not line or line.startswith("#"):
-            continue
-        y, md, name, cat, kind, body = line.split("|")
-        entries.append({"year": int(y), "md": md, "name": name, "cat": cat, "kind": KIND[kind], "body": body, "line": n + 1})
+    for path in src.split(","):
+        for n, line in enumerate(open(path, encoding="utf-8")):
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            y, md, name, cat, kind, body = line.split("|")
+            entries.append({"year": int(y) if y else None, "md": md, "name": name, "cat": cat, "kind": KIND[kind], "body": body,
+                            "line": f"{path.rsplit('/', 1)[-1]}:{n + 1}", "order": len(entries)})
 
     # 星の名前ごとに、既存の星か新しい星かを決める
     targets = {}  # name → {"key", "display", "new": bool, ...}
@@ -194,24 +199,29 @@ def main():
     extra = {}
     year_stars = {}
     report = []
-    for e in sorted(entries, key=lambda x: (x["year"], x["line"])):
+    for e in sorted(entries, key=lambda x: (x["year"] is None, x["year"] or 0, x["order"])):
         tg = targets[e["name"]]
         title, qual = split_qualifier(e["name"])
         self_names = sorted({title, tg["display"], e["name"]}, key=len, reverse=True)
         src_keys = [MEMO]
         ak = article_source(e["name"])
+        y = e["year"]
         if ak:
             src_keys.append(ak)
             a = articles[e["name"]]
-            y = e["year"]
-            marks = [f"紀元前{-y}", f"前{-y}"] if y < 0 else [str(y)]
-            if not any(m in a["extract"] for m in marks):
-                report.append(f"{e['line']}行 {year_label(y)} {e['name']}：記事「{a['title']}」の冒頭に年がない｜{a['extract'][:80]}")
+            if y is not None:
+                marks = [f"紀元前{-y}", f"前{-y}"] if y < 0 else [str(y)]
+                if not any(m in a["extract"] for m in marks):
+                    report.append(f"{e['line']} {year_label(y)} {e['name']}：記事「{a['title']}」の冒頭に年がない｜{a['extract'][:80]}")
         else:
-            report.append(f"{e['line']}行 {year_label(e['year'])} {e['name']}：記事が見つからない（出典はメモだけ）")
-        when = year_label(e["year"]) + ("頃" if e["md"] == "頃" else e["md"])
-        text = f"{when}、" + linker.link(e["body"], self_names)
-        st = {"text": text, "topic": "年表", "sources": src_keys}
+            report.append(f"{e['line']} {e['name']}：記事が見つからない（出典はメモだけ）")
+        if y is None:
+            text = linker.link(e["body"], self_names)
+            st = {"text": text, "topic": "雑学", "sources": src_keys}
+        else:
+            when = year_label(y) + ("頃" if e["md"] == "頃" else e["md"])
+            text = f"{when}、" + linker.link(e["body"], self_names)
+            st = {"text": text, "topic": "年表", "sources": src_keys}
         if tg["new"]:
             star = new_stars.setdefault(tg["key"], {
                 "key": tg["key"], "title": tg["title"], "qualifier": tg["qualifier"], "aliases": [],
@@ -221,7 +231,9 @@ def main():
         else:
             extra.setdefault(tg["key"], []).append(st)
 
-        # 年の星：出来事の星へリンクする
+        # 年の星：出来事の星へリンクする（年がない項目は作らない）
+        if y is None:
+            continue
         ys = year_stars.setdefault(e["year"], {
             "key": year_key(e["year"]), "title": year_label(e["year"]), "qualifier": "", "aliases": [],
             "kind": "event", "category": "歴史", "summary": f"{year_label(e['year'])}の出来事（クイズ年表より）", "importance": 1, "statements": [],
