@@ -8,6 +8,7 @@ import { Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useCosmos } from '../store/useCosmos';
+import { neighborIds } from '../lib/neighbors';
 import { categoryColor, starRadius } from '../lib/util';
 import type { OverlayClass } from '../lib/compare';
 import { useOverlayMap } from './useOverlayMap';
@@ -87,6 +88,22 @@ export function StarField({ connected }: { connected: Set<string> }) {
     return g;
   }, [nodes, connected, overlay]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+
+  // 星を選んでいる間は、つながっている星だけを明るくし、ほかを暗くする（元の明るさは geometry に残す）
+  const selectedId = useCosmos((s) => (s.mode === 'view' ? s.selectedId : null));
+  const statements = useCosmos((s) => s.statements);
+  const relations = useCosmos((s) => s.relations);
+  const base = useMemo(() => Float32Array.from(geometry.getAttribute('alpha').array as Float32Array), [geometry]);
+  useEffect(() => {
+    const attr = geometry.getAttribute('alpha') as THREE.BufferAttribute;
+    const arr = attr.array as Float32Array;
+    if (!selectedId || overlay) arr.set(base);
+    else {
+      const near = neighborIds(selectedId, { statements, relations, nodes });
+      nodes.forEach((n, i) => (arr[i] = near.has(n.id) ? 1 : 0.07));
+    }
+    attr.needsUpdate = true;
+  }, [geometry, base, selectedId, statements, relations, nodes, overlay]);
 
   const material = useMemo(
     () =>
@@ -176,7 +193,10 @@ export function StarPicker() {
       const fovScale = rect.height / (2 * Math.tan((camera.fov * Math.PI) / 360));
       let best: string | null = null;
       let bestScore = Infinity;
-      for (const n of useCosmos.getState().nodes) {
+      // 星を開いている間は、光っている（つながっている）星を優先し、名前のあたりを押しても選べるようにする
+      const st = useCosmos.getState();
+      const lit = st.mode === 'view' && st.selectedId && !st.overlay ? neighborIds(st.selectedId, st) : null;
+      for (const n of st.nodes) {
         v.set(n.position[0], n.position[1], n.position[2]);
         const dist = camera.position.distanceTo(v);
         v.project(camera);
@@ -185,9 +205,10 @@ export function StarPicker() {
         const sy = rect.top + ((1 - v.y) / 2) * rect.height;
         const d = Math.hypot(sx - x, sy - y);
         const rPx = (nodeRadius(n.status, n.importance) * 2 * fovScale) / dist;
-        const limit = Math.max(PICK_RADIUS, rPx);
+        const isLit = lit?.has(n.id) ?? false;
+        const limit = Math.max(isLit ? PICK_RADIUS * 1.8 : PICK_RADIUS, rPx);
         if (d > limit) continue;
-        const score = d / limit + dist * 0.002;
+        const score = d / limit + dist * 0.002 - (isLit ? 10 : 0);
         if (score < bestScore) {
           bestScore = score;
           best = n.id;
@@ -266,8 +287,8 @@ export function StarPicker() {
       if (s.moved || e.type === 'pointercancel') return;
       const store = useCosmos.getState();
       if (!s.starId) {
-        // 何もない場所をタップしたら選択解除
-        if (store.mode === 'view') store.select(null);
+        // 何もない場所をタップしても、詳細パネルは閉じない（宇宙を動かしながら見られるように。閉じるのは×）
+        if (store.mode === 'view' && !store.selectedId) store.select(null);
         return;
       }
       const now = performance.now();

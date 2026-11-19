@@ -365,7 +365,9 @@ export const useCosmos = create<CosmosState>((set, get) => {
         else if (connectFromId !== id) set({ pendingConnection: { sourceId: connectFromId, targetId: id } });
         return;
       }
-      set({ selectedId: id, trail: [], expanded: false });
+      // 宇宙の中で星をタップしたら、その星へ移る（前の星は「戻る」で戻れる）。カメラも合わせる
+      if (get().selectedId) get().navigate(id);
+      else set({ selectedId: id, trail: [], expanded: false, focus: { id, nonce: Date.now() } });
     },
 
     addNode(input, position) {
