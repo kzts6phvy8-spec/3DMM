@@ -347,8 +347,13 @@ function SceneBridge() {
       }
       return [best.x, best.y, best.z];
     };
+    sceneApi.getViewBasis = () => {
+      const e = camera.matrixWorld.elements;
+      return { right: [e[0], e[1], e[2]], up: [e[4], e[5], e[6]] };
+    };
     return () => {
       sceneApi.getSpawnPosition = null;
+      sceneApi.getViewBasis = null;
     };
   }, [camera, controls]);
   return null;

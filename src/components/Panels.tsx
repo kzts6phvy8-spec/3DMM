@@ -9,6 +9,7 @@ import { STAR_KINDS, type CosmosData, type KnowledgeNode, type StarKind } from '
 import { categoryColor } from '../lib/util';
 import { displayName, parseLinkIds } from '../lib/knowledge';
 import { normalize, searchIndex } from '../lib/search';
+import { AiSearchButton } from './AiSearchButton';
 
 /** 星を開く（宇宙の視点を動かし、プレビューを出す） */
 export function openStar(id: string, expanded = false) {
@@ -129,7 +130,10 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
         <div className="panel-empty">
           <p className="muted">見つかりませんでした。</p>
           {query.trim() && (
-            <button className="primary" onClick={() => onCreate(query.trim())}>「{query.trim()}」を新しい星として追加</button>
+            <>
+              <AiSearchButton key={query.trim()} query={query.trim()} targetId={null} primary />
+              <button onClick={() => onCreate(query.trim())}>「{query.trim()}」を自分で書いて追加</button>
+            </>
           )}
         </div>
       )}

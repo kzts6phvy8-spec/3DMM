@@ -16,6 +16,7 @@ import { engagementSummary } from '../lib/engagement';
 import { WikipediaPreview } from './WikipediaPreview';
 import { SuggestionList } from './SuggestionList';
 import { SeedButton } from './SeedButton';
+import { AiSearchButton } from './AiSearchButton';
 import { WikiStatementSuggestions } from './WikiStatementSuggestions';
 import { OtherSources } from './OtherSources';
 
@@ -350,6 +351,7 @@ export function NodeSheet({
               'どこかの記述でリンクされていますが、中身はまだありません。'
             )}
           </p>
+          <AiSearchButton key={`ai-${node.id}`} query={displayName(node)} targetId={node.id} primary />
           <WikipediaPreview key={node.id} starId={node.id} title={node.title} />
           <SearchButtons query={node.title} />
           <div className="sheet-actions inline">
@@ -450,6 +452,7 @@ export function NodeSheet({
 
           <SuggestionList key={node.id} star={node} />
           <SeedButton key={`seed-${node.id}`} star={node} />
+          <AiSearchButton key={`ai-${node.id}`} query={displayName(node)} targetId={node.id} />
 
           {backlinks.length > 0 && (
             <>

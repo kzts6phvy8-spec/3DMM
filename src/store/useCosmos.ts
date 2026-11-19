@@ -20,6 +20,8 @@ import { dateKey } from '../lib/day';
 import type { CosmosCard } from '../lib/compare';
 import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 import { scheduleWarmup } from '../lib/warmup';
+import type { AiSearchResult } from '../ai/search';
+import type { ViewBasis } from '../lib/sceneApi';
 
 /** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
 export type Mode = 'view' | 'connect';
@@ -129,6 +131,8 @@ interface CosmosState extends Data {
   ): void;
   /** 名前の一覧のうち、宇宙にまだない言葉を最大limit個、「まだ知らない星」としてもとの星の周りに生やす。生えた数を返す */
   seedStars(starId: string, names: string[], limit: number): number;
+  /** AIで調べた結果を、星（登録済み）と枝の星・つながりにする。できた星のIDを返す */
+  applyAiSearch(result: AiSearchResult, targetId: string | null, position: Vec3, view?: ViewBasis): { id: string; added: number; linked: number };
   /** 記述の中の言葉をリンクにする（宇宙にない言葉は「まだ知らない星」を作る）。リンク先の星IDを返す */
   linkWordInStatement(statementId: string, word: string): string | null;
   /** この星に使うWikipediaの記事を覚える */
@@ -563,6 +567,151 @@ export const useCosmos = create<CosmosState>((set, get) => {
         };
       });
       set({ expanded: true });
+    },
+
+    applyAiSearch(result, targetId, position, view = { right: [1, 0, 0], up: [0, 1, 0] }) {
+      const before = snapshotOf(get());
+      const t = nowIso();
+      const nodes = [...before.nodes];
+      const sources = [...before.sources];
+      const statements = [...before.statements];
+      const relations = [...before.relations];
+      const norm = (x: string) => x.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+      const findStar = (name: string) => {
+        const k = norm(name);
+        return nodes.find((n) => norm(displayName(n)) === k || norm(n.title) === k || n.aliases.some((a) => norm(a) === k));
+      };
+
+      // ---- 調べた言葉の星（なければ作る） ----
+      let main = (targetId && nodes.find((n) => n.id === targetId)) || findStar(result.title);
+      if (!main) {
+        // 枝の中に宇宙にすでにある星があれば、その近くに置く（つながりの線が短く、見つけやすい）
+        const anchor = result.branches.map((b) => findStar(b.name)).find((n) => n);
+        if (anchor) {
+          // 画面で見て上か下の位置（名前は横に長いので、左右に並べると重なる）
+          const a = (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+          const q = anchor.position;
+          const [cx, cy] = [Math.cos(a) * 14, Math.sin(a) * 14];
+          position = [0, 1, 2].map((k) => q[k] + view.right[k] * cx + view.up[k] * cy) as Vec3;
+        }
+        main = {
+          id: newId(), status: 'known', title: result.title, qualifier: result.qualifier, aliases: [], kind: result.kind,
+          category: '', tags: [], summary: result.summary, importance: 2, position, origin: 'user', createdAt: t, updatedAt: t,
+        };
+        nodes.push(main);
+      } else {
+        const m: KnowledgeNode = main;
+        const updated: KnowledgeNode = {
+          ...m,
+          status: 'known',
+          summary: m.summary || result.summary,
+          kind: m.status === 'unknown' || m.kind === 'other' ? result.kind : m.kind,
+          qualifier: m.qualifier || (m.status === 'unknown' ? result.qualifier : ''),
+          importance: m.status === 'unknown' ? 2 : m.importance,
+          updatedAt: t,
+        };
+        nodes[nodes.findIndex((n) => n.id === m.id)] = updated;
+        main = updated;
+      }
+      const mainId = main.id;
+
+      // ---- 出典（同じURLは使い回す） ----
+      const titleOf = new Map(result.sources.map((s) => [s.url, s.title]));
+      const sourceIdOf = (url: string) => {
+        const found = sources.find((s) => s.url === url);
+        if (found) return found.id;
+        const src: Source = { id: newId(), type: 'web', title: titleOf.get(url) || url, url, author: '', page: '', addedAt: t };
+        sources.push(src);
+        return src.id;
+      };
+
+      // ---- 記述（同じ文がすでにあれば足さない） ----
+      const have = new Set(statements.filter((st) => st.starId === mainId).map((st) => st.text));
+      let order = Math.max(-1, ...statements.filter((st) => st.starId === mainId).map((st) => st.order)) + 1;
+      for (const s of result.statements) {
+        if (have.has(s.text)) continue;
+        statements.push({
+          id: newId(), starId: mainId, text: s.text, kind: 'fact', topic: s.topic,
+          sourceIds: s.sourceUrls.map(sourceIdOf), order: order++, createdAt: t, updatedAt: t,
+        });
+      }
+
+      // ---- 枝：あれば今ある星につなぎ、なければ「まだ知らない星」を作る ----
+      const connected = (a: string, b: string) =>
+        relations.some((r) => (r.sourceNodeId === a && r.targetNodeId === b) || (r.sourceNodeId === b && r.targetNodeId === a));
+      let added = 0;
+      let linked = 0;
+      // 新しい枝の星は、画面で見たときに、すでにつながっている星と重ならない向きに置く
+      const p = main.position;
+      const [rx, ry, rz] = view.right;
+      const [ux, uy, uz] = view.up;
+      // 画面の上での位置（右向き・上向きの成分）
+      const flat = (q: Vec3): [number, number] => {
+        const d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+        return [d[0] * rx + d[1] * ry + d[2] * rz, d[0] * ux + d[1] * uy + d[2] * uz];
+      };
+      const neighborsOfMain = relations
+        .filter((r) => r.sourceNodeId === mainId || r.targetNodeId === mainId)
+        .map((r) => (r.sourceNodeId === mainId ? r.targetNodeId : r.sourceNodeId));
+      // 名前は横に長いので、横の差は小さく数える（左右に並べるより、上下にずらしたほうが重ならない）
+      const used: [number, number][] = [[0, 0]];
+      for (const id of neighborsOfMain) {
+        const n = nodes.find((x) => x.id === id);
+        if (n) used.push(flat(n.position));
+      }
+      const apart = (a: [number, number], b: [number, number]) => Math.hypot((a[0] - b[0]) / 5, a[1] - b[1]);
+      const freeSpot = (): [number, number] => {
+        let best: [number, number] = [0, 10];
+        let bestScore = -Infinity;
+        for (let k = 0; k < 48; k++) {
+          const a = (k / 48) * Math.PI * 2 + Math.random() * 0.05;
+          for (const R of [9, 11.5, 14]) {
+            const c: [number, number] = [Math.cos(a) * R, Math.sin(a) * R];
+            // 下はパネルに隠れやすいので、少しだけ上を好む
+            const score = Math.min(...used.map((u) => apart(c, u))) + (c[1] > 0 ? 0.6 : 0);
+            if (score > bestScore) {
+              bestScore = score;
+              best = c;
+            }
+          }
+        }
+        used.push(best);
+        return best;
+      };
+      result.branches.forEach((b) => {
+        let target = findStar(b.name);
+        if (target?.id === mainId) return;
+        if (!target) {
+          // 星どうしの普段の間隔（およそ18）に近い距離で散らす。近すぎると名前が重なって読めない
+          const [fx, fy] = freeSpot();
+          const depth = (Math.random() - 0.5) * 4;
+          const back = [ry * uz - rz * uy, rz * ux - rx * uz, rx * uy - ry * ux]; // 画面の奥行きの向き
+          target = {
+            id: newId(), status: 'unknown', title: b.name, qualifier: '', aliases: [], kind: 'other', category: '', tags: [],
+            summary: '', importance: 1, origin: 'user', seedOf: mainId, createdAt: t, updatedAt: t,
+            position: [
+              p[0] + rx * fx + ux * fy + back[0] * depth,
+              p[1] + ry * fx + uy * fy + back[1] * depth,
+              p[2] + rz * fx + uz * fy + back[2] * depth,
+            ],
+          };
+          nodes.push(target);
+          added++;
+        } else linked++;
+        if (connected(mainId, target.id)) return;
+        relations.push({
+          id: newId(), sourceNodeId: mainId, targetNodeId: target.id, relationType: b.relationType,
+          explanation: b.reason, explanationKind: b.sourceUrls.length ? 'fact' : 'opinion',
+          sourceIds: b.sourceUrls.map(sourceIdOf), createdAt: t,
+        });
+      });
+
+      set({
+        nodes, sources, statements, relations,
+        undo: { label: `「${result.title}」をAIで調べて追加しました`, snapshot: before, expiresAt: Date.now() + 8000 },
+      });
+      persist();
+      return { id: mainId, added, linked };
     },
 
     seedStars(starId, names, limit) {
