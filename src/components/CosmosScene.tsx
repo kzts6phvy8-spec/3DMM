@@ -9,8 +9,9 @@ import type { KnowledgeNode, Vec3 } from '../types';
 import { RELATION_COLORS, starRadius } from '../lib/util';
 import { sceneApi } from '../lib/sceneApi';
 import { labelPool, labelSlots, labelWidth } from '../lib/labelRegistry';
-import { backlinksOf, displayName, mentionEdgesFor, parseLinkIds, type MentionEdge } from '../lib/knowledge';
+import { displayName, mentionEdgesFor, type MentionEdge } from '../lib/knowledge';
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
+import { neighborIds } from '../lib/neighbors';
 
 function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
   const geometry = useMemo(() => {
@@ -47,6 +48,7 @@ function RelationLines() {
   const relations = useCosmos((s) => s.relations);
   const statements = useCosmos((s) => s.statements);
   const selectedId = useCosmos((s) => s.selectedId);
+  const focusMode = useCosmos((s) => s.mode === 'view' && s.selectedId !== null && !s.overlay);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const mentions = useMemo(() => mentionEdgesFor(statements, nodes), [statements, nodes]);
   // 「広げる」で生まれた、まだ知らない星と、もとの星を結ぶ点線
@@ -64,8 +66,9 @@ function RelationLines() {
   return (
     <>
       {/* 言及のつながり：記述の中のリンクから自動でできる細い線（まとめて1回で描いて軽くする） */}
-      <MentionSegments edges={factEdges} byId={byId} dashed={false} dim={!!selectedId} />
-      <MentionSegments edges={opinionEdges} byId={byId} dashed dim={!!selectedId} />
+      {/* 星を開いている間は、ほかの星どうしの線を消して、開いた星の線だけを見せる */}
+      {!focusMode && <MentionSegments edges={factEdges} byId={byId} dashed={false} dim={!!selectedId} />}
+      {!focusMode && <MentionSegments edges={opinionEdges} byId={byId} dashed dim={!!selectedId} />}
       {/* 選んだ星の言及のつながりだけ、太く明るく描く */}
       {selectedId &&
         mentions
@@ -91,7 +94,7 @@ function RelationLines() {
             color={RELATION_COLORS[r.relationType]}
             lineWidth={active ? 3 : 1.4}
             transparent
-            opacity={active ? 0.95 : selectedId ? 0.2 : 0.45}
+            opacity={active ? 0.95 : focusMode ? 0.04 : selectedId ? 0.2 : 0.45}
             dashed={r.explanationKind === 'opinion'}
             dashSize={0.3}
             gapSize={0.2}
@@ -101,6 +104,28 @@ function RelationLines() {
       })}
     </>
   );
+}
+
+/** つながっている星（近い順に最大30個）が、詳細パネルの上の空間に収まる距離 */
+const FIT_MAX = 30;
+function fitDistance(node: KnowledgeNode, cam: THREE.PerspectiveCamera, max: number): number {
+  const { statements, relations, nodes } = useCosmos.getState();
+  const ids = neighborIds(node.id, { statements, relations, nodes });
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const p = new THREE.Vector3(...node.position);
+  const ds: number[] = [];
+  for (const id of ids) {
+    const n = byId.get(id);
+    if (n && id !== node.id) ds.push(p.distanceTo(new THREE.Vector3(...n.position)));
+  }
+  if (ds.length === 0) return 9;
+  ds.sort((a, b) => a - b);
+  const r = ds[Math.min(ds.length, FIT_MAX) - 1];
+  // 星はパネルの上（画面の上から約4分の1）に来る。その上下と左右に収まる大きさ
+  const t = Math.tan((cam.fov * Math.PI) / 360);
+  const room = Math.min(t * 0.36, t * cam.aspect * 0.85);
+  // 遠近のずれと上のバーの分を見込んで、少し余裕をとる
+  return Math.min(max, Math.max(9, (r / room) * 1.5));
 }
 
 /** 選んだ星へカメラを滑らかに移動させる */
@@ -115,7 +140,7 @@ function FocusRig() {
     if (!node) return;
     const target = new THREE.Vector3(...node.position);
     const dir = camera.position.clone().sub(controls.target).normalize();
-    const distance = 9;
+    const distance = fitDistance(node, camera as THREE.PerspectiveCamera, controls.maxDistance * 0.95);
     anim.current = { target, camPos: target.clone().add(dir.multiplyScalar(distance)) };
     // ユーザーが触ったらアニメーションを止める
     const stop = () => (anim.current = null);
@@ -130,6 +155,22 @@ function FocusRig() {
     camera.position.lerp(anim.current.camPos, k);
     controls.update();
     if (camera.position.distanceTo(anim.current.camPos) < 0.01) anim.current = null;
+  });
+  return null;
+}
+
+/** 遠くから見ているときは霧も遠ざける（離れた星まで引いたときに、つながっている星が霧で消えないように） */
+function FogRig() {
+  const base = useRef(0);
+  useFrame(({ camera, scene, controls }) => {
+    const fog = scene.fog as THREE.Fog | null;
+    const c = controls as unknown as OrbitControlsImpl | null;
+    if (!fog || !c) return;
+    const d = camera.position.distanceTo(c.target);
+    if (!base.current) base.current = d;
+    const k = Math.max(1, d / base.current);
+    fog.near = 120 * k;
+    fog.far = 400 * k;
   });
   return null;
 }
@@ -179,26 +220,22 @@ function LabelProjector() {
   const v = useMemo(() => new THREE.Vector3(), []);
   const selectedId = useCosmos((s) => s.selectedId);
   const statements = useCosmos((s) => s.statements);
+  const relations = useCosmos((s) => s.relations);
   const seedCount = useCosmos((s) => s.nodes.filter((n) => n.seedOf).length);
-  // 選んだ星とリンクでつながっている星（まだ知らない星のラベルを見せる対象）
-  const near = useMemo(() => {
-    const set = new Set<string>();
-    if (!selectedId) return set;
-    set.add(selectedId);
-    for (const st of statements) if (st.starId === selectedId) parseLinkIds(st.text).forEach((id) => set.add(id));
-    for (const st of backlinksOf(selectedId, statements)) set.add(st.starId);
-    // 選んだ星から広げた星の名前も見せる
-    for (const n of useCosmos.getState().nodes) if (n.seedOf === selectedId) set.add(n.id);
-    return set;
-  }, [selectedId, statements, seedCount]);
+  // 選んだ星とつながっている星（必ず名前を見せる対象）
+  const near = useMemo(
+    () => neighborIds(selectedId, { statements, relations, nodes: useCosmos.getState().nodes }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedId, statements, relations, seedCount],
+  );
 
 
   const controls = useThree((st) => st.controls) as OrbitControlsImpl | null;
   // 前のコマと同じ見え方なら、ラベルの計算を省く（星が1万個あっても、止まっているときは軽く）
   const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown }), []);
   useFrame(({ camera, size }) => {
-    const { nodes, labelDensity, connectFromId } = useCosmos.getState();
-    const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}|${connectFromId}`;
+    const { nodes, labelDensity, connectFromId, mode } = useCosmos.getState();
+    const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}|${connectFromId}|${mode}`;
     if (key === last.key && nodes === last.nodes && near === last.near) return;
     last.key = key;
     last.nodes = nodes;
@@ -217,6 +254,8 @@ function LabelProjector() {
       // 遠くからは重要な星の名前だけ見せ、近づくほど多くの名前が見えるようにする
       let opacity: number;
       if (near.has(n.id)) opacity = 1;
+      // 星を選んでいる間は、つながっていない星の名前を出さない（つながりを目立たせるため）
+      else if (selectedId && mode === 'view') continue;
       else if (unknown) opacity = Math.max(0, Math.min(0.8, (d0 * 0.45 - dist) / (d0 * 0.1)));
       else {
         const limit = d0 * (0.75 + n.importance * 0.14) + densityBonus * (d0 / 30);
@@ -238,7 +277,7 @@ function LabelProjector() {
         w: labelWidth(text),
         opacity,
         // 選んだ星の周り → 重要な星 → 手前の星 の順に場所を取る
-        priority: (near.has(n.id) ? 1000 : 0) + (unknown ? 0 : n.importance * 20) - dist,
+        priority: (n.id === selectedId ? 2000 : near.has(n.id) ? 1000 : 0) + (unknown ? 0 : n.importance * 20) - dist,
       });
     }
     // 重なるラベルは、優先度の低いほうを隠す
@@ -372,6 +411,7 @@ export function CosmosScene() {
       <CameraFit />
       <FocusRig />
       <ViewShift />
+      <FogRig />
       <LabelProjector />
       <SceneBridge />
     </Canvas>
