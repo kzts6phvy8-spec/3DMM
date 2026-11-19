@@ -1,7 +1,7 @@
 // 言葉クイズ：難しいけれど面白い言葉の意味を4択で当てて、気に入ったら星にする。
 // 画面から独立した純粋な処理だけを置く。
 // - 選択肢はすべて、問題の言葉リストにある言葉のWikipediaの説明（本物の説明）から作る。うその説明は作らない。
-import { seededRandom } from './puzzle';
+import { seededRandom } from './day';
 import { normalize } from './search';
 import { FREE_QUIZ_PER_DAY } from './plan';
 

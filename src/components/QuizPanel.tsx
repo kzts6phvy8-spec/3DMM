@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
 import { DAILY_COUNT, makeQuestion, progressForToday, quizOrder, type QuizProgress, type QuizWord } from '../lib/quiz';
-import { dateKey } from '../lib/puzzle';
+import { dateKey } from '../lib/day';
 import { normalize } from '../lib/search';
 import { spawnPosition } from '../lib/sceneApi';
 import { hasUnlimitedQuiz } from '../lib/plan';

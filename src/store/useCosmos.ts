@@ -16,7 +16,7 @@ import { mergeDataset, removeStarter } from '../data/mergeDataset';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
 import { addDay, mergeDays } from '../lib/streak';
-import { dateKey } from '../lib/puzzle';
+import { dateKey } from '../lib/day';
 import type { CosmosCard } from '../lib/compare';
 import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 import { scheduleWarmup } from '../lib/warmup';
@@ -24,7 +24,7 @@ import { scheduleWarmup } from '../lib/warmup';
 /** view: 通常 / connect: 星をつなぐ（星を動かすのは長押しで行う） */
 export type Mode = 'view' | 'connect';
 /** 宇宙の上に重ねて開く画面 */
-export type Panel = 'search' | 'list' | 'more' | 'report' | 'puzzle' | 'compare' | 'quiz' | null;
+export type Panel = 'search' | 'list' | 'more' | 'report' | 'compare' | 'quiz' | null;
 /** 星の名前の表示量 */
 export type LabelDensity = 'few' | 'normal' | 'many';
 
@@ -64,7 +64,7 @@ interface CosmosState extends Data {
   draggingId: string | null;
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
   engagement: EngagementMap;
-  /** 連続記録：クイズ・パズルをやった日の一覧 */
+  /** 連続記録：クイズをやった日の一覧（廃止したパズルの日も残る） */
   activityDays: string[];
   /** 友達の宇宙と重ねて表示しているとき：友達の宇宙カード */
   overlay: { card: CosmosCard } | null;
@@ -77,7 +77,7 @@ interface CosmosState extends Data {
   setOverlay(overlay: { card: CosmosCard } | null): void;
   /** バックアップにあった関わり方の記録を、今の記録に合わせる（減らさない） */
   mergeEngagementFrom(map: EngagementMap): void;
-  /** 今日、クイズかパズルをやったと記録する（連続記録） */
+  /** 今日、クイズをやったと記録する（連続記録） */
   recordActivity(): void;
   mergeActivityFrom(days: string[]): void;
   select(id: string | null): void;
