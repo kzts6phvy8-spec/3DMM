@@ -99,7 +99,7 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 - **言及のつながり**：記述のリンクから自動で計算する。保存しない。
 - **関わり方の記録**：星を開いた回数など。`src/lib/engagement.ts`。保存キー `engagement-v1`（知識のデータとは別）。バックアップにも含める。
 - **同期**：Supabase に預ける（`src/sync/`、表と決まりは `supabase/schema.sql`）。有料（`profiles.plan = 'paid'`）の本人だけが読み書きできる。アプリに入れてよいのは公開してよい鍵（publishable）だけ。秘密の鍵（secret / service_role）は絶対に入れない。
-- **連続記録**：クイズ・パズルをやった日の一覧。`src/lib/streak.ts`。保存キー `activity-v1`（知識のデータとは別）。バックアップにも含める（復元時は足し合わせる）。
+- **連続記録**：言葉クイズをやった日の一覧（つながりパズルは2026-11-19に廃止）。`src/lib/streak.ts`。保存キー `activity-v1`（知識のデータとは別）。バックアップにも含める（復元時は足し合わせる）。
 - **確認状態はない**（2026-11-13に廃止）。旧データの `manualCheck`・`checkNote` は、読み込み時とバックアップ復元時に `dropCheckFields` で取り除く。
 - 保存キー：`cosmos-v2`。旧形式 `cosmos-v1` は読み込み時に移行し、旧データは消さずに残す。
 - 削除や編集で整合性が壊れないようにする。
@@ -162,7 +162,7 @@ src/
   lib/knowledge.ts        リンク・言及のつながりの決まり（画面から独立）
   lib/engagement.ts       関わり方の記録（星を開いた回数など）
   lib/report.ts           今月の発見レポートの計算
-  lib/puzzle.ts           毎日のつながりパズル（問題の決め方・最短の道のり）
+  lib/day.ts              日付の文字列・日付で決まる乱数（つながりパズルは2026-11-19に廃止）
   lib/compare.ts          友達の宇宙と重ねる（宇宙カードの作成・読み込み・比較）
   lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
   lib/streak.ts           毎日の連続記録（やった日の一覧から日数を数える）。起動時のカードは components/StreakCard.tsx

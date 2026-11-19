@@ -15,7 +15,7 @@ export interface CosmosRepository {
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
   loadEngagement(): Promise<EngagementMap>;
   saveEngagement(map: EngagementMap): Promise<void>;
-  /** 連続記録（クイズ・パズルをやった日の一覧）。知識のデータとは別に保存する */
+  /** 連続記録（クイズをやった日の一覧）。知識のデータとは別に保存する */
   loadActivity(): Promise<string[]>;
   saveActivity(days: string[]): Promise<void>;
 }
