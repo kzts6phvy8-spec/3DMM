@@ -27,7 +27,8 @@
 3. 価格を2つ作る
    - 継続（Recurring）・月ごと（Monthly）・金額（例：300円）
    - 継続（Recurring）・年ごと（Yearly）・金額（例：3,000円）
-4. それぞれの価格の ID（`price_` で始まる文字）を控える
+4. 価格の ID（`price_` で始まる文字）は控えなくてよい。関数が、有効な月額・年額の価格を自動で探す
+   - 価格を作り直したときは、古い価格を「アーカイブ」（無効）にする。有効な価格が複数あると、いちばん新しいものが使われる
 
 ## 3. お支払いの管理画面（カスタマーポータル）を有効にする
 
@@ -55,13 +56,12 @@
    - 受け取るイベント：`checkout.session.completed`・`customer.subscription.created`・`customer.subscription.updated`・`customer.subscription.deleted`
 2. 作った送信先の「署名シークレット」（Signing secret。`whsec_` で始まる）を控える
 3. Stripe の「開発者」→「API キー」で、「シークレットキー」（`sk_test_` で始まる）を控える
-4. Supabase の「Edge Functions」→「Secrets」で、次の4つを追加する（**チャットには貼らない**）
+4. Supabase の「Edge Functions」→「Secrets」で、次の2つを追加する（**チャットには貼らない**）
    | 名前 | 値 |
    |---|---|
    | `STRIPE_SECRET_KEY` | `sk_test_…` |
    | `STRIPE_WEBHOOK_SECRET` | `whsec_…` |
-   | `STRIPE_PRICE_MONTHLY` | 月額の `price_…` |
-   | `STRIPE_PRICE_YEARLY` | 年額の `price_…` |
+   - 使う価格を決め打ちしたいときだけ、`STRIPE_PRICE_MONTHLY`・`STRIPE_PRICE_YEARLY` に `price_…` を入れる
 
 ## 試し方（テストモード）
 

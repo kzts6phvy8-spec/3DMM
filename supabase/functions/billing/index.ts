@@ -4,7 +4,7 @@
 //   Stripe からの知らせ（Webhook。stripe-signature の見出し付き）… 支払い・解約に合わせて profiles.plan を書き換える
 // 秘密の鍵は Supabase の Secrets にだけ置く：
 //   STRIPE_SECRET_KEY（sk_test_… / sk_live_…）、STRIPE_WEBHOOK_SECRET（whsec_…）、
-//   STRIPE_PRICE_MONTHLY・STRIPE_PRICE_YEARLY（price_…。Stripe で作った月額・年額の価格）
+//   STRIPE_PRICE_MONTHLY・STRIPE_PRICE_YEARLY（任意。price_…。なければ、Stripe にある有効な月額・年額の価格を自動で探す）
 // 管理画面で手動で有料にした人（plan_source = 'manual'）は、Stripe からの知らせで無料に戻さない（開発用のアカウントなど）。
 // Stripe の部品（ライブラリ）は使わず、決まった形の問い合わせ（REST API）を直接送る（起動を軽くするため）。
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -53,8 +53,9 @@ Deno.serve(async (req) => {
 
   if (body.action === 'checkout') {
     if (profile?.plan === 'paid') return json({ error: 'すでに有料プランです', code: 'already' }, 409);
-    const price = body.interval === 'year' ? Deno.env.get('STRIPE_PRICE_YEARLY') : Deno.env.get('STRIPE_PRICE_MONTHLY');
-    if (!price) return json({ error: '価格がまだ登録されていません', code: 'nokey' }, 503);
+    const interval = body.interval === 'year' ? 'year' : 'month';
+    const price = (interval === 'year' ? Deno.env.get('STRIPE_PRICE_YEARLY') : Deno.env.get('STRIPE_PRICE_MONTHLY')) || (await findPrice(stripeKey, interval));
+    if (!price) return json({ error: 'Stripe に有効な価格（月額／年額）が見つかりません', code: 'nokey' }, 503);
     const params: Record<string, string> = {
       mode: 'subscription',
       'line_items[0][price]': price,
@@ -87,6 +88,23 @@ function adminClient() {
   // Supabase が関数に自動で渡す「管理用の鍵」。profiles を書き換えるのに使う（アプリには絶対に入れない）
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   return key ? createClient(SUPABASE_URL, key, { auth: { persistSession: false } }) : null;
+}
+
+/** Stripe にある有効な継続の価格から、月額（month）／年額（year）のものを探す。いくつもあれば、いちばん新しいもの */
+async function findPrice(key: string, interval: 'month' | 'year'): Promise<string | null> {
+  const res = await fetch('https://api.stripe.com/v1/prices?active=true&type=recurring&limit=100', {
+    headers: { Authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) {
+    console.error('stripe prices', res.status, (await res.text()).slice(0, 300));
+    return null;
+  }
+  const list: { id: string; created: number; recurring?: { interval?: string; interval_count?: number } }[] = (await res.json()).data ?? [];
+  const found = list
+    .filter((p) => p.recurring?.interval === interval && (p.recurring.interval_count ?? 1) === 1)
+    .sort((a, b) => b.created - a.created)[0];
+  return found?.id ?? null;
 }
 
 // deno-lint-ignore no-explicit-any
