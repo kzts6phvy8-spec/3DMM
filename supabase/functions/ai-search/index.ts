@@ -182,9 +182,18 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
   const reasonOf = async (r: globalThis.Response) => {
     const t = await r.text();
     try {
-      return String(JSON.parse(t)?.error?.message ?? t).slice(0, 300);
+      const err = JSON.parse(t)?.error ?? {};
+      // 上限（429）のときは、どの上限に当たったか（quotaId と上限の数）だけを短く出す。画面の文字数に収めるため
+      const quotas: string[] = [];
+      for (const d of Array.isArray(err.details) ? err.details : []) {
+        for (const v of Array.isArray(d?.violations) ? d.violations : []) {
+          if (v?.quotaId) quotas.push(`${v.quotaId}${v.quotaValue !== undefined ? `=${v.quotaValue}` : ''}`);
+        }
+      }
+      if (quotas.length) return quotas.join(', ').slice(0, 200);
+      return String(err.message ?? t).slice(0, 200);
     } catch {
-      return t.slice(0, 300);
+      return t.slice(0, 200);
     }
   };
   const call = (model: string, withSchema: boolean) =>
