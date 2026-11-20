@@ -69,7 +69,11 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
   const sb = await client();
   const { data: s } = await sb.auth.getSession();
   if (!s.session) return { ok: false, code: 'login', message: 'AIで調べるには、ログインが必要です（「その他」→「同期」）。' };
-  const { data, error } = await sb.functions.invoke(AI_SEARCH_FUNCTION, { body: { query } });
+  // 返事が来ないまま「調べています」で止まらないように、2分で打ち切る
+  const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 120_000));
+  const answer = await Promise.race([sb.functions.invoke(AI_SEARCH_FUNCTION, { body: { query } }), timeout]);
+  if (answer === 'timeout') return { ok: false, code: 'network', message: 'AIからの返事が2分来ませんでした。少し待ってから、もう一度試してください。' };
+  const { data, error } = answer;
   if (error) {
     // サーバーが返した理由（日本語）を読み出す
     let body: { error?: string; code?: string; detail?: string } | null = null;

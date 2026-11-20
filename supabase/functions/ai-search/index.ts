@@ -207,6 +207,8 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body(withSchema)),
+      // 返事が来ないまま待ち続けないように、1回ごとに時間を区切る
+      signal: AbortSignal.timeout(45000),
     });
 
   let res: globalThis.Response | null = null;
@@ -238,17 +240,20 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
     // これが通るなら「モデルは使えるが、Google検索（グラウンディング）が無料枠で使えない」とわかる
     let probe = '';
     const probeModel = models.find((m) => tried.some((t) => t.startsWith(`${m}（429）`))) ?? models[0];
+    console.error('gemini probe (検索なし) 開始', probeModel);
     try {
       const p = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(probeModel)}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'OKとだけ答えてください' }] }] }),
+        signal: AbortSignal.timeout(30000),
       });
       const pt = await p.text();
       console.error('gemini probe (検索なし)', probeModel, p.status, pt.slice(0, 1000));
       probe = p.ok ? `検索なしなら ${probeModel} は使える（Google検索が無料枠で使えない可能性）` : `検索なしでも ${probeModel} は ${p.status}`;
-    } catch {
-      probe = '検索なしの確認もつながらず';
+    } catch (e) {
+      console.error('gemini probe (検索なし) 失敗', probeModel, String(e));
+      probe = `検索なしの確認は ${probeModel} から30秒返事なし`;
     }
     return json({ error: '無料枠で使える回数を超えたか、このモデルは無料枠で使えません', code: 'busy', detail: `【${probe}】 ` + tried.join(' ／ ').slice(0, 500) }, 429);
   }
