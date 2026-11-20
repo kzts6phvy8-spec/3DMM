@@ -39,7 +39,7 @@ export function OtherSources({ star, compact = false }: { star: KnowledgeNode; c
   if (!open) {
     return (
       <div className="wiki-suggest">
-        <button className="small-btn" onClick={() => setOpen(true)}>📚 ほかの辞書で探す（英語版Wikipedia・ウィクショナリー）</button>
+        <button className="small-btn wrap" onClick={() => setOpen(true)}>📚 ほかの辞書で探す（英語版Wikipedia・ウィクショナリー）</button>
       </div>
     );
   }

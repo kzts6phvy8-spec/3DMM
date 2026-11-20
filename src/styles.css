@@ -403,3 +403,18 @@ button.danger { color: var(--danger); }
 .more-message.is-error { color: #ffb4b4; }
 .sync-compare { width: 100%; text-align: left; }
 .search-entry { width: 100%; height: 64px; border: 0; border-radius: 10px; background: transparent; }
+
+/* ---- 星を開いたとき：名前より下を全部まとめてスクロールする（2026-11-20） ---- */
+/* 中の部品は左右に16pxの余白を自分で持っているので、本文の余白（16px）と二重にならないよう外に広げる */
+.sheet-body.whole > .sheet-sub,
+.sheet-body.whole > .neighbors,
+.sheet-body.whole > .sheet-actions,
+.sheet-body.whole > .sheet-more { margin-left: -16px; margin-right: -16px; }
+.sheet-body.whole > .summary,
+.sheet-body.whole > .trivia { margin-left: 0; margin-right: 0; }
+.sheet-body.whole > .sheet-sub { padding-left: 38px; }
+/* 操作ボタンは小さめの1行に（押しやすさのため高さは40pxを保つ） */
+.sheet-actions.compact { gap: 6px; padding: 8px 16px; }
+.sheet-actions.compact button { min-height: 40px; padding: 0 12px; font-size: 13px; border-radius: 12px; }
+/* 長い文字のボタンは、画面からはみ出さずに折り返す */
+.small-btn.wrap { max-width: 100%; white-space: normal; text-align: left; padding-top: 6px; padding-bottom: 6px; }

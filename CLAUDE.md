@@ -179,6 +179,7 @@ src/
   data/vital.json         初期セット第3弾（Wikipedia基本1000項目。scripts/build_vital.py で作成）
   data/vital10k.json      初期セット第4弾（Wikipedia「1万の項目」から約8,700個。scripts/build_vital10k.py で作成）
   data/chrono.json        初期セット第5・6弾（利用者のメモ「クイズ年表」と知識メモから、出来事の星と年の星。scripts/build_chrono.py で作成）
+  data/corrections.json   初期セットの壊れた記述の直し方（元データは直し済み）。端末のデータには data/applyCorrections.ts で1回だけ反映（版は useCosmos.ts の FIX_FLAG）
   components/StarField.tsx 星をまとめて描く・タップ／長押しの判定（星が多くても軽く）
   sampleData.ts           初回起動時のサンプル
   components/             画面部品（3D空間・ボトムシート・フォーム）
