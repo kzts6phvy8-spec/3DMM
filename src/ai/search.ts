@@ -86,6 +86,12 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
     const detail = typeof body?.detail === 'string' && body.detail ? `（AIの会社からの理由：${body.detail.slice(0, 400)}）` : '';
     return { ok: false, code: body?.code ?? 'network', message: (body?.error ?? 'AIにつながりませんでした。通信を確かめて、もう一度試してください。') + detail };
   }
+  // 関数は通信をつないでおくため、失敗も「成功（200）」の形で返し、本文の error で伝える
+  const failed = data as { error?: unknown; code?: unknown; detail?: unknown } | null;
+  if (failed && typeof failed.error === 'string') {
+    const detail = typeof failed.detail === 'string' && failed.detail ? `（AIの会社からの理由：${failed.detail.slice(0, 400)}）` : '';
+    return { ok: false, code: typeof failed.code === 'string' ? failed.code : 'network', message: failed.error + detail };
+  }
   const result = normalizeResult((data as { result?: unknown })?.result, query);
   if (!result) return { ok: false, code: 'empty', message: 'AIの結果を読み取れませんでした。もう一度試してください。' };
   const entry = (data as { searchEntryPoint?: unknown })?.searchEntryPoint;

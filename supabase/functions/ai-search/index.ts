@@ -116,8 +116,52 @@ Deno.serve(async (req) => {
   }
   if (!query || query.length > 100) return json({ error: '調べる言葉を1〜100文字で入れてください', code: 'input' }, 400);
 
-  return geminiKey ? askGemini(query, geminiKey) : askClaude(query, claudeKey!);
+  const started = Date.now();
+  const work = (geminiKey ? askGemini(query, geminiKey) : askClaude(query, claudeKey!)).finally(() =>
+    console.log('ai-search 所要', Math.round((Date.now() - started) / 1000), '秒'),
+  );
+  return keepAlive(work);
 });
+
+// 答えができるまで時間がかかると、iPhone の Safari が途中で通信を切ることがある（約60秒、推測）。
+// そこで、返事をすぐ始め、5秒ごとに空白を送ってつないでおき、最後に答えのJSONを送る（JSONの前の空白は読むときに無視される）。
+// 始めに状態（200）を決めてしまうので、失敗したときは本文の error と status で伝える。アプリは本文を見て見分ける。
+function keepAlive(work: Promise<Response>): Response {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(enc.encode(' '));
+      const timer = setInterval(() => {
+        try {
+          controller.enqueue(enc.encode(' '));
+        } catch {
+          /* 相手が切ったあとは何もしない */
+        }
+      }, 5000);
+      let out: Record<string, unknown>;
+      try {
+        const r = await work;
+        const text = await r.text();
+        try {
+          out = JSON.parse(text);
+        } catch {
+          out = { error: 'AIの結果を読み取れませんでした。もう一度試してください', code: 'incomplete' };
+        }
+        if (!r.ok) out.status = r.status;
+      } catch (e) {
+        out = { error: 'AIにつながりませんでした', code: 'network', detail: String(e).slice(0, 200), status: 502 };
+      }
+      clearInterval(timer);
+      try {
+        controller.enqueue(enc.encode(JSON.stringify(out)));
+        controller.close();
+      } catch {
+        /* 相手が切ったあとは何もしない */
+      }
+    },
+  });
+  return new Response(stream, { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
+}
 
 // ================= Claude =================
 async function askClaude(query: string, apiKey: string): Promise<Response> {
@@ -170,11 +214,15 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
     `「${query}」を、Google検索で確かめながら調べてください。\n` +
     '結果は、次のJSONスキーマに合うJSONだけで答えてください（前後に説明や```を付けない）。source_urls と sources は空の配列でかまいません（出典はこちらで付けます）。\n' +
     JSON.stringify(submitTool.input_schema);
-  const body = (withSchema: boolean) => ({
+  // 考える深さは浅く（low）して、速く・安くする（2026-11-20に利用者が決定）
+  const body = (withSchema: boolean, lowThinking: boolean) => ({
     systemInstruction: { parts: [{ text: SYSTEM }] },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     tools: [{ google_search: {} }],
-    generationConfig: withSchema ? { responseMimeType: 'application/json', responseJsonSchema: submitTool.input_schema } : {},
+    generationConfig: {
+      ...(withSchema ? { responseMimeType: 'application/json', responseJsonSchema: submitTool.input_schema } : {}),
+      ...(lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
+    },
   });
 
   // Googleが返した理由の文を取り出す（画面とLogsに出して、原因がわかるようにする）
@@ -201,13 +249,14 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
       return t.slice(0, 200);
     }
   };
-  const call = (model: string, withSchema: boolean) =>
+  const call = (model: string, withSchema: boolean, lowThinking = true) =>
     fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body(withSchema)),
-      // 返事が来ないまま待ち続けないように、1回ごとに時間を区切る
-      signal: AbortSignal.timeout(45000),
+      body: JSON.stringify(body(withSchema, lowThinking)),
+      // 返事が来ないまま待ち続けないように、時間を区切る。検索しながら考えるので時間がかかることがある。
+      // Supabase の関数は150秒で止められ、アプリは120秒で打ち切るので、それより前の100秒にする
+      signal: AbortSignal.timeout(100000),
     });
 
   let res: globalThis.Response | null = null;
@@ -217,7 +266,15 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
       const model = models[i];
       let r = await call(model, true);
       // 検索と決まった形の答え（スキーマ）を同時に使えないモデルなら、スキーマなしでもう一度
-      if (r.status === 400) r = await call(model, false);
+      if (r.status === 400) {
+        console.error('gemini 400（スキーマなしで試し直す）', model, (await r.text()).slice(0, 500));
+        r = await call(model, false);
+      }
+      // 考える深さの設定を受け付けないモデルなら、設定なしでもう一度
+      if (r.status === 400) {
+        console.error('gemini 400（考える深さの設定なしで試し直す）', model, (await r.text()).slice(0, 500));
+        r = await call(model, false, false);
+      }
       if (r.status === 429 || r.status === 404) {
         const raw = await r.text();
         // Logs には、Googleの返事を切らずに残す（原因を調べるため）
@@ -231,8 +288,15 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
       res = r;
       break;
     }
-  } catch {
-    return json({ error: 'AIにつながりませんでした', code: 'network' }, 502);
+  } catch (e) {
+    const timedOut = e instanceof DOMException && e.name === 'TimeoutError';
+    console.error('gemini fetch failed', String(e));
+    return json(
+      timedOut
+        ? { error: 'AIの返事が100秒来ませんでした。もう一度試してください', code: 'network', detail: 'timeout 100s' }
+        : { error: 'AIにつながりませんでした', code: 'network', detail: String(e).slice(0, 200) },
+      502,
+    );
   }
   if (!res) {
     // 原因の切り分け：Google検索を付けずに、短い文だけで1回試す（答えは使わない）。
