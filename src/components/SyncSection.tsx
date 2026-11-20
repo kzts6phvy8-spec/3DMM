@@ -1,7 +1,8 @@
 // 「その他」の中の「端末の同期（有料プラン）」。ログイン・プランの確認・今すぐ同期・ログアウト。
 import { useState } from 'react';
-import { refreshPlan, signIn, signOut, signUp, syncNow, useSync } from '../sync/sync';
+import { openBillingPortal, refreshPlan, signIn, signOut, signUp, startCheckout, syncNow, useSync } from '../sync/sync';
 import { syncConfigured } from '../sync/config';
+import type { Billing } from '../sync/sync';
 
 function formatTime(iso: string | null) {
   if (!iso) return 'まだ';
@@ -9,8 +10,15 @@ function formatTime(iso: string | null) {
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function billingText(b: Billing) {
+  if (b.source === 'manual') return '管理画面で有料（お支払いなし）';
+  const end = b.periodEnd ? `（次の更新：${formatTime(b.periodEnd).split(' ')[0]}）` : '';
+  if (b.status === 'past_due') return `お支払いを確かめられていません。カードを確かめてください${end}`;
+  return `Stripeでお支払い中${end}`;
+}
+
 export function SyncSection() {
-  const { email, plan, status, message, lastSyncedAt } = useSync();
+  const { email, plan, status, message, lastSyncedAt, billing } = useSync();
   const [form, setForm] = useState({ email: '', password: '' });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -78,17 +86,30 @@ export function SyncSection() {
       <dl className="meta">
         <dt>ログイン中</dt><dd>{email}</dd>
         <dt>プラン</dt><dd>{plan === 'paid' ? '有料' : plan === 'free' ? '無料' : '確認中…'}</dd>
+        {plan === 'paid' && billing && (
+          <><dt>お支払い</dt><dd>{billingText(billing)}</dd></>
+        )}
         {plan === 'paid' && (<><dt>最後の同期</dt><dd>{status === 'syncing' ? '同期しています…' : formatTime(lastSyncedAt)}</dd></>)}
       </dl>
       {plan === 'free' && (
-        <p className="muted small">端末の同期は有料プランの機能です。申し込みの仕組みはまだ準備中です。</p>
+        <>
+          <p className="muted small">端末の同期は有料プランの機能です。お支払いはStripe（カード決済のサービス）の画面で行います。いつでも解約できます。</p>
+          <div className="more-actions">
+            <button className="primary" disabled={busy} onClick={() => void run(() => startCheckout('month'))}>有料プランにする（月額）</button>
+            <button disabled={busy} onClick={() => void run(() => startCheckout('year'))}>有料プランにする（年額）</button>
+          </div>
+        </>
       )}
+      {note && <p className="more-message is-error">{note}</p>}
       {message && <p className="more-message is-error">{message}</p>}
       <div className="more-actions">
         {plan === 'paid' && (
           <button disabled={status === 'syncing'} onClick={() => void syncNow()}>🔄 今すぐ同期</button>
         )}
         {plan === 'free' && <button onClick={() => void refreshPlan()}>プランを確かめ直す</button>}
+        {billing?.hasCustomer && (
+          <button disabled={busy} onClick={() => void run(() => openBillingPortal())}>お支払いの管理（解約・カードの変更）</button>
+        )}
         <button
           onClick={() => {
             if (window.confirm('ログアウトしますか？\nこの端末のデータは消えません。')) void signOut();

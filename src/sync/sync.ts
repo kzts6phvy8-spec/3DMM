@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { useCosmos } from '../store/useCosmos';
-import { SUPABASE_KEY, SUPABASE_URL, syncConfigured } from './config';
+import { BILLING_FUNCTION, SUPABASE_KEY, SUPABASE_URL, syncConfigured } from './config';
 import { decodePayload, encodePayload, type SyncPayload } from './payload';
 
 type Plan = 'free' | 'paid' | null;
@@ -27,6 +27,17 @@ interface SyncState {
   message: string | null;
   lastSyncedAt: string | null;
   conflict: SyncConflict | null;
+  /** 支払いの様子（有料になった理由・Stripeの契約の状態）。列がまだない古い表では null */
+  billing: Billing | null;
+}
+
+export interface Billing {
+  /** manual：管理画面で手動で有料（開発用など）／stripe：Stripeで支払い */
+  source: 'manual' | 'stripe';
+  /** Stripe のお客さま番号があるか（お支払いの管理画面を開けるか） */
+  hasCustomer: boolean;
+  status: string | null;
+  periodEnd: string | null;
 }
 
 export const useSync = create<SyncState>(() => ({
@@ -36,6 +47,7 @@ export const useSync = create<SyncState>(() => ({
   message: null,
   lastSyncedAt: null,
   conflict: null,
+  billing: null,
 }));
 
 // ---- この端末の同期の記録（localStorage） ----
@@ -133,15 +145,37 @@ function authMessage(e: unknown): string {
 async function loadPlan(): Promise<Plan> {
   if (!session) return null;
   const sb = await client();
-  const { data, error } = await sb.from('profiles').select('plan').eq('user_id', session.user.id).maybeSingle();
-  if (error) throw error;
-  return data?.plan === 'paid' ? 'paid' : 'free';
+  const userId = session.user.id;
+  const full = await sb
+    .from('profiles')
+    .select('plan, plan_source, stripe_customer_id, subscription_status, current_period_end')
+    .eq('user_id', userId)
+    .maybeSingle();
+  let row: { plan?: string } | null = full.data;
+  if (full.error) {
+    // 支払いの列をまだ足していない表（supabase/billing.sql を実行する前）でも、プランだけは読めるようにする
+    const basic = await sb.from('profiles').select('plan').eq('user_id', userId).maybeSingle();
+    if (basic.error) throw basic.error;
+    row = basic.data;
+    useSync.setState({ billing: null });
+  } else if (full.data) {
+    const d = full.data;
+    useSync.setState({
+      billing: {
+        source: d.plan_source === 'stripe' ? 'stripe' : 'manual',
+        hasCustomer: !!d.stripe_customer_id,
+        status: d.subscription_status ?? null,
+        periodEnd: d.current_period_end ?? null,
+      },
+    });
+  }
+  return row?.plan === 'paid' ? 'paid' : 'free';
 }
 
 async function afterLogin(s: Session | null) {
   session = s;
   if (!s) {
-    useSync.setState({ email: null, plan: null, status: 'off', message: null, lastSyncedAt: null, conflict: null });
+    useSync.setState({ email: null, plan: null, status: 'off', message: null, lastSyncedAt: null, conflict: null, billing: null });
     return;
   }
   const local = readLocal(s.user.id);
@@ -155,6 +189,77 @@ async function afterLogin(s: Session | null) {
   }
 }
 
+// ---- 有料プランの支払い（Stripe） ----
+/** 支払いのあとに戻ってくる場所（今のページ。?billing=… は付け直す） */
+const returnUrl = () => location.origin + location.pathname;
+
+async function callBilling(body: Record<string, string>): Promise<{ url?: string; error?: string }> {
+  const sb = await client();
+  const { data, error } = await sb.functions.invoke(BILLING_FUNCTION, { body: { ...body, returnUrl: returnUrl() } });
+  if (error) {
+    let reason: string | undefined;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === 'function') reason = (await ctx.json())?.error;
+    } catch {
+      /* 読めなければ一般的な文にする */
+    }
+    return { error: reason ?? '支払いの仕組みにつながりませんでした。通信を確かめて、もう一度試してください。' };
+  }
+  return data as { url?: string };
+}
+
+/** 支払い画面（Stripe）へ移る。うまくいかなければ理由を返す */
+export async function startCheckout(interval: 'month' | 'year'): Promise<string | null> {
+  if (!session) return 'ログインしてください';
+  const r = await callBilling({ action: 'checkout', interval });
+  if (r.url) {
+    location.href = r.url;
+    return null;
+  }
+  return r.error ?? '支払い画面を開けませんでした';
+}
+
+/** お支払いの管理画面（解約・カードの変更）へ移る */
+export async function openBillingPortal(): Promise<string | null> {
+  if (!session) return 'ログインしてください';
+  const r = await callBilling({ action: 'portal' });
+  if (r.url) {
+    location.href = r.url;
+    return null;
+  }
+  return r.error ?? 'お支払いの管理画面を開けませんでした';
+}
+
+/**
+ * 支払いの画面から戻ってきたとき（?billing=success など）。
+ * 有料になったという知らせ（Webhook）は少し遅れて届くことがあるので、数秒ごとに何度かプランを確かめ直す。
+ */
+async function afterBillingReturn() {
+  const state = new URLSearchParams(location.search).get('billing');
+  if (!state) return;
+  history.replaceState(null, '', location.pathname + location.hash);
+  if (state !== 'success') {
+    await refreshPlan();
+    return;
+  }
+  useSync.setState({ message: 'お支払いを確かめています…' });
+  for (let i = 0; i < 10; i++) {
+    try {
+      if ((await loadPlan()) === 'paid') {
+        useSync.setState({ message: '有料プランになりました。ありがとうございます。' });
+        await refreshPlan();
+        useSync.setState({ message: '有料プランになりました。ありがとうございます。' });
+        return;
+      }
+    } catch {
+      /* 次の回で確かめ直す */
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  useSync.setState({ message: 'お支払いは受け付けました。有料プランへの切り替えに時間がかかっています。少し待ってから「プランを確かめ直す」を押してください。' });
+}
+
 /** 起動したときに呼ぶ。前にログインしていれば、そのまま同期を始める */
 export async function startSync() {
   if (!syncConfigured()) return;
@@ -164,6 +269,7 @@ export async function startSync() {
   const { data } = await sb.auth.getSession();
   await listenAuth();
   await afterLogin(data.session);
+  if (data.session) await afterBillingReturn();
 }
 
 export async function signIn(email: string, password: string): Promise<string | null> {
