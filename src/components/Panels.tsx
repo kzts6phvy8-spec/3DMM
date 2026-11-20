@@ -234,7 +234,15 @@ export function MorePanel() {
 
   const doImport = async (file: File) => {
     try {
-      const { data, engagement, activity } = parseBackup(await file.text());
+      const parsed = parseBackup(await file.text());
+      const { engagement, activity } = parsed;
+      // 古いバックアップには、直す前の初期セットの壊れた記述が入っていることがあるので、ここでも直す
+      const [{ applyCorrections }, corrections] = await Promise.all([
+        import('../data/applyCorrections'),
+        import('../data/corrections.json').then((m) => m.default as unknown as import('../data/applyCorrections').Corrections),
+      ]);
+      const fixed = applyCorrections(parsed.data, corrections).data;
+      const data = { ...parsed.data, ...fixed };
       const n = data.nodes.filter((x) => x.status === 'known').length;
       if (!window.confirm(`今のデータ（星${known}個）を、バックアップのデータ（星${n}個）で置き換えます。\nよろしいですか？（直後は「元に戻す」ができます）`)) return;
       replaceAll(data);

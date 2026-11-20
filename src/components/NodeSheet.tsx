@@ -254,6 +254,12 @@ export function NodeSheet({
   const trail = useCosmos((s) => s.trail);
   const { select, setMode, focusOn, deleteNode, deleteRelation, navigate, goBack, goToTrail, setExpanded } = useCosmos.getState();
   const [moreOpen, setMoreOpen] = useState(false);
+  // 別の星に移ったら「⋯」（削除など）は閉じる（前の星の操作が開いたままにならないように）
+  const [moreFor, setMoreFor] = useState(selectedId);
+  if (moreFor !== selectedId) {
+    setMoreFor(selectedId);
+    setMoreOpen(false);
+  }
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const node = selectedId ? byId.get(selectedId) : undefined;

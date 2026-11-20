@@ -9,3 +9,6 @@ export const syncConfigured = () => SUPABASE_URL !== '' && SUPABASE_KEY !== '';
 
 // 「🔭 AIで調べる」で呼ぶ Edge Function の名前（Supabase の画面で付けた名前。URLの /functions/v1/ の後ろ）
 export const AI_SEARCH_FUNCTION = 'ai-search-';
+
+// 有料プランの支払い（Stripe）の Edge Function の名前（supabase/functions/billing）
+export const BILLING_FUNCTION = 'billing';
