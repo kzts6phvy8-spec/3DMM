@@ -164,7 +164,7 @@ interface GeminiSupport { segment?: { text?: string }; groundingChunkIndices?: n
 
 async function askGemini(query: string, apiKey: string): Promise<Response> {
   // 無料枠で使えないモデルもあるので、上限（429）や見つからない（404）ときは次のモデルで試す
-  const models = Deno.env.get('GEMINI_MODEL')
+  const models: string[] = Deno.env.get('GEMINI_MODEL')
     ? [Deno.env.get('GEMINI_MODEL')!]
     : ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
   const prompt =
@@ -179,8 +179,8 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
   });
 
   // Googleが返した理由の文を取り出す（画面とLogsに出して、原因がわかるようにする）
-  const reasonOf = async (r: globalThis.Response) => {
-    const t = await r.text();
+  const reasonOf = async (r: globalThis.Response) => reasonText(await r.text());
+  const reasonText = (t: string) => {
     try {
       const err = JSON.parse(t)?.error ?? {};
       // 上限（429）のときは、どの上限に当たったか（quotaId と上限の数）だけを短く出す。画面の文字数に収めるため
@@ -212,14 +212,19 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
   let res: globalThis.Response | null = null;
   const tried: string[] = [];
   try {
-    for (const model of models) {
+    for (let i = 0; i < models.length && i < 6; i++) {
+      const model = models[i];
       let r = await call(model, true);
       // 検索と決まった形の答え（スキーマ）を同時に使えないモデルなら、スキーマなしでもう一度
       if (r.status === 400) r = await call(model, false);
       if (r.status === 429 || r.status === 404) {
-        const why = await reasonOf(r);
-        console.error('gemini', model, r.status, why);
-        tried.push(`${model}（${r.status}）：${why}`);
+        const raw = await r.text();
+        // Logs には、Googleの返事を切らずに残す（原因を調べるため）
+        console.error('gemini', model, r.status, raw.slice(0, 2000));
+        // 「このモデルは新しい利用者には使えません。models/○○ を使ってください」と言われたら、そのモデルでも試す
+        const suggested = raw.match(/use models\/([\w.-]+)/)?.[1]?.replace(/\.$/, '');
+        if (r.status === 404 && suggested && !models.includes(suggested)) models.push(suggested);
+        tried.push(`${model}（${r.status}）：${reasonText(raw)}`);
         continue;
       }
       res = r;
