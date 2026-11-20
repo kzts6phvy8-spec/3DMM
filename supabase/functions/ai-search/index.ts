@@ -233,7 +233,25 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
   } catch {
     return json({ error: 'AIにつながりませんでした', code: 'network' }, 502);
   }
-  if (!res) return json({ error: '無料枠で使える回数を超えたか、このモデルは無料枠で使えません', code: 'busy', detail: tried.join(' ／ ').slice(0, 600) }, 429);
+  if (!res) {
+    // 原因の切り分け：Google検索を付けずに、短い文だけで1回試す（答えは使わない）。
+    // これが通るなら「モデルは使えるが、Google検索（グラウンディング）が無料枠で使えない」とわかる
+    let probe = '';
+    const probeModel = models.find((m) => tried.some((t) => t.startsWith(`${m}（429）`))) ?? models[0];
+    try {
+      const p = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(probeModel)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'OKとだけ答えてください' }] }] }),
+      });
+      const pt = await p.text();
+      console.error('gemini probe (検索なし)', probeModel, p.status, pt.slice(0, 1000));
+      probe = p.ok ? `検索なしなら ${probeModel} は使える（Google検索が無料枠で使えない可能性）` : `検索なしでも ${probeModel} は ${p.status}`;
+    } catch {
+      probe = '検索なしの確認もつながらず';
+    }
+    return json({ error: '無料枠で使える回数を超えたか、このモデルは無料枠で使えません', code: 'busy', detail: `【${probe}】 ` + tried.join(' ／ ').slice(0, 500) }, 429);
+  }
   if (res.status === 401 || res.status === 403) {
     const why = await reasonOf(res);
     console.error('gemini auth', res.status, why);
