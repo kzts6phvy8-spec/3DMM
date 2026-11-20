@@ -4,7 +4,8 @@
 // 使うAIは、預けた鍵で決まる（交換できるようにするため）：
 //   GEMINI_API_KEY があれば Google の Gemini（Google検索で確かめる）。モデルは GEMINI_MODEL で変えられる
 //   なければ ANTHROPIC_API_KEY で Claude（Web検索で確かめる）
-import Anthropic from 'npm:@anthropic-ai/sdk';
+// Claude 用の部品は重いので、Claude を使うときだけ読み込む（起動を軽くするため）
+import type Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const MODEL = 'claude-opus-5-5';
@@ -120,7 +121,8 @@ Deno.serve(async (req) => {
 
 // ================= Claude =================
 async function askClaude(query: string, apiKey: string): Promise<Response> {
-  const client = new Anthropic({ apiKey });
+  const SDK = (await import('npm:@anthropic-ai/sdk')).default;
+  const client = new SDK({ apiKey });
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: `「${query}」を調べてください。` }];
   try {
     for (let i = 0; i <= MAX_CONTINUE; i++) {
@@ -149,9 +151,9 @@ async function askClaude(query: string, apiKey: string): Promise<Response> {
     }
     return json({ error: 'AIが結果をまとめられませんでした。もう一度試してください', code: 'incomplete' }, 502);
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return json({ error: '混み合っています。少し待ってから試してください', code: 'busy' }, 429);
-    if (e instanceof Anthropic.AuthenticationError) return json({ error: 'AIの鍵が正しくありません', code: 'nokey' }, 503);
-    if (e instanceof Anthropic.APIError) return json({ error: `AIの呼び出しに失敗しました（${e.status}）`, code: 'api' }, 502);
+    if (e instanceof SDK.RateLimitError) return json({ error: '混み合っています。少し待ってから試してください', code: 'busy' }, 429);
+    if (e instanceof SDK.AuthenticationError) return json({ error: 'AIの鍵が正しくありません', code: 'nokey' }, 503);
+    if (e instanceof SDK.APIError) return json({ error: `AIの呼び出しに失敗しました（${e.status}）`, code: 'api' }, 502);
     return json({ error: 'AIにつながりませんでした', code: 'network' }, 502);
   }
 }
