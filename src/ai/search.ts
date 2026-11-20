@@ -19,7 +19,13 @@ export interface AiSearchResult {
   sources: { url: string; title: string }[];
 }
 
-export type AiSearchOutcome = { ok: true; result: AiSearchResult } | { ok: false; code: string; message: string };
+export type AiSearchOutcome = { ok: true; result: AiSearchResult; searchEntryPoint: string | null } | { ok: false; code: string; message: string };
+
+/**
+ * Google検索の候補（Gemini を使ったとき）。Googleの決まりで、検索で確かめた結果には表示が必要とされているので、
+ * 調べた星の画面に出す。星のIDごとに、アプリを開いている間だけ覚えておく。
+ */
+export const searchEntryPoints = new Map<string, string>();
 
 const str = (v: unknown, max = 400) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const urls = (v: unknown) =>
@@ -76,5 +82,6 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
   }
   const result = normalizeResult((data as { result?: unknown })?.result, query);
   if (!result) return { ok: false, code: 'empty', message: 'AIの結果を読み取れませんでした。もう一度試してください。' };
-  return { ok: true, result };
+  const entry = (data as { searchEntryPoint?: unknown })?.searchEntryPoint;
+  return { ok: true, result, searchEntryPoint: typeof entry === 'string' && entry.length < 20000 ? entry : null };
 }

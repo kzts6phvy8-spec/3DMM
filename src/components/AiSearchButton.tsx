@@ -3,7 +3,7 @@
 // 枝の星を開いて、もう一度押すと、そこからまた枝が伸びる。
 import { useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
-import { aiSearch } from '../ai/search';
+import { aiSearch, searchEntryPoints } from '../ai/search';
 import { spawnPosition, viewBasis } from '../lib/sceneApi';
 import { openStar } from './Panels';
 
@@ -22,6 +22,7 @@ export function AiSearchButton({ query, targetId, primary }: { query: string; ta
       return;
     }
     const { id, added, linked } = applyAiSearch(outcome.result, targetId, spawnPosition(), viewBasis());
+    if (outcome.searchEntryPoint) searchEntryPoints.set(id, outcome.searchEntryPoint);
     const parts = [added && `新しい言葉${added}個`, linked && `宇宙にある星${linked}個`].filter(Boolean).join('・');
     // 開いている星の画面なら、そのまま枝が見えるように視点を合わせ直す。検索画面からなら、できた星を開く
     if (targetId) useCosmos.getState().focusOn(id);
@@ -37,4 +38,12 @@ export function AiSearchButton({ query, targetId, primary }: { query: string; ta
       {message && <p className={`more-message${message.error ? ' is-error' : ''}`}>{message.text}</p>}
     </div>
   );
+}
+
+/** Google検索の候補（Geminiで調べたときだけ）。Googleの決まりで表示が必要とされている。アプリを開いている間だけ出す */
+export function SearchEntry({ starId }: { starId: string }) {
+  const entry = searchEntryPoints.get(starId);
+  if (!entry) return null;
+  // Googleから届いた表示用の部品。アプリの中身に触れられないよう、別の枠（sandbox）に閉じ込めて出す
+  return <iframe className="search-entry" title="Google検索の候補" sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={`<base target="_blank">${entry}`} />;
 }

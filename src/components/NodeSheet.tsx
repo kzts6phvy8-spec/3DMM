@@ -16,7 +16,7 @@ import { engagementSummary } from '../lib/engagement';
 import { WikipediaPreview } from './WikipediaPreview';
 import { SuggestionList } from './SuggestionList';
 import { SeedButton } from './SeedButton';
-import { AiSearchButton } from './AiSearchButton';
+import { AiSearchButton, SearchEntry } from './AiSearchButton';
 import { WikiStatementSuggestions } from './WikiStatementSuggestions';
 import { OtherSources } from './OtherSources';
 
@@ -386,6 +386,7 @@ export function NodeSheet({
         </p>
       )}
       <NeighborChips key={`nb-${node.id}`} star={node} own={own} backlinks={backlinks} related={related} byId={byId} />
+      <SearchEntry starId={node.id} />
 
       <div className="sheet-actions">
         {!expanded && <button className="primary" onClick={() => setExpanded(true)}>開く</button>}
