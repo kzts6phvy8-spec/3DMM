@@ -72,14 +72,15 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
   const { data, error } = await sb.functions.invoke(AI_SEARCH_FUNCTION, { body: { query } });
   if (error) {
     // サーバーが返した理由（日本語）を読み出す
-    let body: { error?: string; code?: string } | null = null;
+    let body: { error?: string; code?: string; detail?: string } | null = null;
     try {
       const ctx = (error as { context?: Response }).context;
       if (ctx && typeof ctx.json === 'function') body = await ctx.json();
     } catch {
       /* 読めなければ下の一般的な文にする */
     }
-    return { ok: false, code: body?.code ?? 'network', message: body?.error ?? 'AIにつながりませんでした。通信を確かめて、もう一度試してください。' };
+    const detail = typeof body?.detail === 'string' && body.detail ? `（AIの会社からの理由：${body.detail.slice(0, 400)}）` : '';
+    return { ok: false, code: body?.code ?? 'network', message: (body?.error ?? 'AIにつながりませんでした。通信を確かめて、もう一度試してください。') + detail };
   }
   const result = normalizeResult((data as { result?: unknown })?.result, query);
   if (!result) return { ok: false, code: 'empty', message: 'AIの結果を読み取れませんでした。もう一度試してください。' };

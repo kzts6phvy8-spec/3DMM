@@ -161,8 +161,10 @@ interface GeminiChunk { web?: { uri?: string; title?: string } }
 interface GeminiSupport { segment?: { text?: string }; groundingChunkIndices?: number[] }
 
 async function askGemini(query: string, apiKey: string): Promise<Response> {
-  const model = Deno.env.get('GEMINI_MODEL') || 'gemini-flash-latest';
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  // 無料枠で使えないモデルもあるので、上限（429）や見つからない（404）ときは次のモデルで試す
+  const models = Deno.env.get('GEMINI_MODEL')
+    ? [Deno.env.get('GEMINI_MODEL')!]
+    : ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
   const prompt =
     `「${query}」を、Google検索で確かめながら調べてください。\n` +
     '結果は、次のJSONスキーマに合うJSONだけで答えてください（前後に説明や```を付けない）。source_urls と sources は空の配列でかまいません（出典はこちらで付けます）。\n' +
@@ -174,20 +176,49 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
     generationConfig: withSchema ? { responseMimeType: 'application/json', responseJsonSchema: submitTool.input_schema } : {},
   });
 
-  let res: globalThis.Response;
+  // Googleが返した理由の文を取り出す（画面とLogsに出して、原因がわかるようにする）
+  const reasonOf = async (r: globalThis.Response) => {
+    const t = await r.text();
+    try {
+      return String(JSON.parse(t)?.error?.message ?? t).slice(0, 300);
+    } catch {
+      return t.slice(0, 300);
+    }
+  };
+  const call = (model: string, withSchema: boolean) =>
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(body(withSchema)),
+    });
+
+  let res: globalThis.Response | null = null;
+  const tried: string[] = [];
   try {
-    res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(body(true)) });
-    // 検索と決まった形の答え（スキーマ）を同時に使えないモデルなら、スキーマなしでもう一度
-    if (res.status === 400) {
-      res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(body(false)) });
+    for (const model of models) {
+      let r = await call(model, true);
+      // 検索と決まった形の答え（スキーマ）を同時に使えないモデルなら、スキーマなしでもう一度
+      if (r.status === 400) r = await call(model, false);
+      if (r.status === 429 || r.status === 404) {
+        const why = await reasonOf(r);
+        console.error('gemini', model, r.status, why);
+        tried.push(`${model}（${r.status}）：${why}`);
+        continue;
+      }
+      res = r;
+      break;
     }
   } catch {
     return json({ error: 'AIにつながりませんでした', code: 'network' }, 502);
   }
-  if (res.status === 429) return json({ error: '無料で使える回数を超えたか、混み合っています。時間をおいて試してください', code: 'busy' }, 429);
-  if (res.status === 401 || res.status === 403) return json({ error: 'AIの鍵が正しくありません', code: 'nokey' }, 503);
+  if (!res) return json({ error: '無料枠で使える回数を超えたか、このモデルは無料枠で使えません', code: 'busy', detail: tried.join(' ／ ').slice(0, 600) }, 429);
+  if (res.status === 401 || res.status === 403) {
+    const why = await reasonOf(res);
+    console.error('gemini auth', res.status, why);
+    return json({ error: 'AIの鍵が正しくないか、使えない設定です', code: 'nokey', detail: why }, 503);
+  }
   if (!res.ok) {
-    const detail = (await res.text()).slice(0, 300);
+    const detail = await reasonOf(res);
     console.error('gemini error', res.status, detail);
     return json({ error: `AIの呼び出しに失敗しました（${res.status}）`, code: 'api', detail }, 502);
   }
