@@ -10,14 +10,16 @@ AIの秘密の鍵（APIキー）は、アプリの中には入れません。Sup
 
 準備は3つです。どれも、iPhone の Safari でできます。画面の表示名は、変わることがあります。
 
-## 1. AIの鍵を作る（Gemini・無料枠）
+## 1. AIの鍵を作る（Gemini・有料枠が必要）
 
 1. https://aistudio.google.com を開いて、Google アカウントでログインする
 2. 「Get API key」（APIキーを取得）→「Create API key」（APIキーを作成）を押す
 3. 表示された鍵をコピーする
    - **この鍵はチャットに貼らないでください。** 次の手順で Supabase にだけ貼ります。
-   - 支払い情報を登録しなければ、無料枠の中だけで動きます。使い切ると止まります。料金はかかりません。
-   - **注意**：無料枠では、送った内容（調べた言葉）が Google のサービス改善に使われることがあるとされています。
+   - **無料枠では動きません。** Google検索で確かめる機能（Grounding with Google Search）は、Googleの料金表で無料枠が「Not available」（使えない）になっている（2026-11-20に確認。https://ai.google.dev/gemini-api/docs/pricing ）。無料枠の鍵だと、どのモデルも 429 になる。
+   - AI Studio の鍵の画面で「お支払い情報を設定」（Set up billing）を押し、有料枠（Tier 1）にする。鍵はそのまま使える。
+   - 有料枠では、Google検索は Gemini 3 以降のモデル全体で月5,000回まで無料、その後は有料（同じ料金表）。文章を作る分（トークン）は別に料金がかかる。
+   - 使うモデルは `gemini-3.8-flash` だけ（2026-11-20に決定。`gemini-2.5-flash` などは「新しい利用者には使えない」と返される）。
 
 ### （あとで）Claude に切り替えるとき
 
@@ -31,7 +33,7 @@ AIの秘密の鍵（APIキー）は、アプリの中には入れません。Sup
 3. 「Add new secret」（新しい秘密を追加）で、次を入れて保存する
    - Name（名前）：`GEMINI_API_KEY`
    - Value（値）：1でコピーした鍵
-   - Geminiのモデルを変えたいときだけ、`GEMINI_MODEL` も追加する（例：`gemini-flash-latest`。なければこれを使う）
+   - Geminiのモデルを変えたいときだけ、`GEMINI_MODEL` も追加する（なければ `gemini-3.8-flash` を使う）
 
 ## 3. 処理（Edge Function）を置く
 

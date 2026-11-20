@@ -163,10 +163,9 @@ interface GeminiChunk { web?: { uri?: string; title?: string } }
 interface GeminiSupport { segment?: { text?: string }; groundingChunkIndices?: number[] }
 
 async function askGemini(query: string, apiKey: string): Promise<Response> {
-  // 無料枠で使えないモデルもあるので、上限（429）や見つからない（404）ときは次のモデルで試す
-  const models: string[] = Deno.env.get('GEMINI_MODEL')
-    ? [Deno.env.get('GEMINI_MODEL')!]
-    : ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  // Google検索（グラウンディング）は無料枠では使えない（Googleの料金表で「Not available」）。有料枠の gemini-3.8-flash だけを使う。
+  // モデルは Secrets の GEMINI_MODEL で変えられる。見つからない（404）ときだけ、Googleが勧めるモデルで1回試す
+  const models: string[] = [Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash'];
   const prompt =
     `「${query}」を、Google検索で確かめながら調べてください。\n` +
     '結果は、次のJSONスキーマに合うJSONだけで答えてください（前後に説明や```を付けない）。source_urls と sources は空の配列でかまいません（出典はこちらで付けます）。\n' +
