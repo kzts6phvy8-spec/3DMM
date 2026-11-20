@@ -215,7 +215,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
         const STARTER_FLAG = 'starter-v6-added';
         const SPREAD_FLAG = 'layout-spread-v1';
         // 初期セットの壊れた記述を直した版。直し方（corrections.json）を増やしたら上げる
-        const FIX_FLAG = 'corrections-v1';
+        const FIX_FLAG = 'corrections-v2';
         if (!data) {
           data = await createSampleData();
           await repo.save(data);
