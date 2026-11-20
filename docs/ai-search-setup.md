@@ -38,9 +38,10 @@ AIの秘密の鍵（APIキー）は、アプリの中には入れません。Sup
 1. GitHub アプリで `supabase/functions/ai-search/index.ts` を開き、中身を全部コピーする
    - Safari なら、ファイルの画面の「Raw」を押すと、文字だけの画面になってコピーしやすい
 2. Supabase の「Edge Functions」→「Deploy a new function」→「Via Editor」を押す
-3. 名前を `ai-search` にする（この名前でアプリが呼ぶので、1文字も変えない）
+3. 名前を付ける。アプリは `src/sync/config.ts` の `AI_SEARCH_FUNCTION` の名前で呼ぶ（今は `ai-search-`。2026-11-20に置いたときの名前に合わせた）
 4. 最初から入っている文字を全部消して、1でコピーしたものを貼り付ける
 5. 「Deploy function」を押す
+6. 置いたあと「Settings」で「Verify JWT with legacy secret」をオフにして「Save changes」を押す（ログインの確認は処理の中で行うため）
 
 ## 4. 確かめる
 
@@ -57,7 +58,7 @@ AIの秘密の鍵（APIキー）は、アプリの中には入れません。Sup
 | 無料で使える回数を超えたか、混み合っています | Gemini の無料枠を使い切った、または一度にたくさん使った。時間をおく |
 | AIの呼び出しに失敗しました（数字） | モデルの名前が違う、など。Supabase の Edge Functions の「Logs」に詳しい理由が出る |
 | AIの鍵がまだ登録されていません／正しくありません | 手順2がまだ、または鍵の貼り間違い |
-| AIにつながりませんでした | 手順3がまだ、または名前が `ai-search` になっていない |
+| AIにつながりませんでした | 手順3がまだ、名前が `AI_SEARCH_FUNCTION` と違う、または手順3-6のスイッチがオンのまま |
 
 ## 料金の目安
 

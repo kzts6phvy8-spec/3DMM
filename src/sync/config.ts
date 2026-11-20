@@ -6,3 +6,6 @@ export const SUPABASE_URL: string = 'https://qhaxsvljyohdohromjch.supabase.co';
 export const SUPABASE_KEY: string = 'sb_publishable_hG5FBFMHuLcKpVhgLAd4-A_fMmLyTXB';
 
 export const syncConfigured = () => SUPABASE_URL !== '' && SUPABASE_KEY !== '';
+
+// 「🔭 AIで調べる」で呼ぶ Edge Function の名前（Supabase の画面で付けた名前。URLの /functions/v1/ の後ろ）
+export const AI_SEARCH_FUNCTION = 'ai-search-';

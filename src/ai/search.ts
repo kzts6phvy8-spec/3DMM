@@ -1,6 +1,7 @@
 // AIで調べる：Supabase の Edge Function（supabase/functions/ai-search）を呼び、結果を確かめて整える。
 // AIの秘密の鍵はサーバー側にだけある。アプリはログインの印（JWT）を付けて頼むだけ。
 import { RELATION_TYPES, STAR_KINDS, type RelationType, type StarKind } from '../types';
+import { AI_SEARCH_FUNCTION } from '../sync/config';
 
 export interface AiBranch {
   name: string;
@@ -68,7 +69,7 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
   const sb = await client();
   const { data: s } = await sb.auth.getSession();
   if (!s.session) return { ok: false, code: 'login', message: 'AIで調べるには、ログインが必要です（「その他」→「同期」）。' };
-  const { data, error } = await sb.functions.invoke('ai-search', { body: { query } });
+  const { data, error } = await sb.functions.invoke(AI_SEARCH_FUNCTION, { body: { query } });
   if (error) {
     // サーバーが返した理由（日本語）を読み出す
     let body: { error?: string; code?: string } | null = null;
