@@ -200,7 +200,11 @@ async function callBilling(body: Record<string, string>): Promise<{ url?: string
     let reason: string | undefined;
     try {
       const ctx = (error as { context?: Response }).context;
-      if (ctx && typeof ctx.json === 'function') reason = (await ctx.json())?.error;
+      if (ctx && typeof ctx.json === 'function') {
+        const b = await ctx.json();
+        // Stripe が返した理由があれば添える（原因がわかるように）
+        reason = b?.error ? `${b.error}${b.detail ? `（Stripeからの理由：${String(b.detail).slice(0, 200)}）` : ''}` : undefined;
+      }
     } catch {
       /* 読めなければ一般的な文にする */
     }
