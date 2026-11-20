@@ -191,7 +191,13 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
         }
       }
       if (quotas.length) return quotas.join(', ').slice(0, 200);
-      return String(err.message ?? t).slice(0, 200);
+      const msg = String(err.message ?? t);
+      // 文の後ろのほうにある「* Quota exceeded for metric: …, limit: 0, model: …」を取り出す（前半の決まり文句は省く）
+      const hits = [...msg.matchAll(/metric:\s*([^,\s]+),\s*limit:\s*(\d+)/g)].map(
+        (m) => `${m[1].split('/').pop()} 上限${m[2]}`,
+      );
+      if (hits.length) return [...new Set(hits)].join(', ').slice(0, 200);
+      return msg.replace(/^You exceeded your current quota[^]*?ai\.dev\/rate-limit\.?\s*/, '').slice(0, 200) || msg.slice(0, 200);
     } catch {
       return t.slice(0, 200);
     }
