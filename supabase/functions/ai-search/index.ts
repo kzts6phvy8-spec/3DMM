@@ -206,8 +206,9 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body(withSchema)),
-      // 返事が来ないまま待ち続けないように、1回ごとに時間を区切る
-      signal: AbortSignal.timeout(45000),
+      // 返事が来ないまま待ち続けないように、時間を区切る。検索しながら考えるので時間がかかることがある。
+      // Supabase の関数は150秒で止められ、アプリは120秒で打ち切るので、それより前の100秒にする
+      signal: AbortSignal.timeout(100000),
     });
 
   let res: globalThis.Response | null = null;
@@ -231,8 +232,15 @@ async function askGemini(query: string, apiKey: string): Promise<Response> {
       res = r;
       break;
     }
-  } catch {
-    return json({ error: 'AIにつながりませんでした', code: 'network' }, 502);
+  } catch (e) {
+    const timedOut = e instanceof DOMException && e.name === 'TimeoutError';
+    console.error('gemini fetch failed', String(e));
+    return json(
+      timedOut
+        ? { error: 'AIの返事が100秒来ませんでした。もう一度試してください', code: 'network', detail: 'timeout 100s' }
+        : { error: 'AIにつながりませんでした', code: 'network', detail: String(e).slice(0, 200) },
+      502,
+    );
   }
   if (!res) {
     // 原因の切り分け：Google検索を付けずに、短い文だけで1回試す（答えは使わない）。
