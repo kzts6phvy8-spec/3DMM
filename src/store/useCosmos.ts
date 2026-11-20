@@ -13,6 +13,7 @@ import type {
 import { indexedDbRepository, type CosmosRepository } from '../storage/repository';
 import { createSampleData } from '../sampleData';
 import { mergeDataset, removeStarter } from '../data/mergeDataset';
+import { applyCorrections, type Corrections } from '../data/applyCorrections';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
 import { addDay, mergeDays } from '../lib/streak';
@@ -213,11 +214,14 @@ export const useCosmos = create<CosmosState>((set, get) => {
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
         const STARTER_FLAG = 'starter-v6-added';
         const SPREAD_FLAG = 'layout-spread-v1';
+        // 初期セットの壊れた記述を直した版。直し方（corrections.json）を増やしたら上げる
+        const FIX_FLAG = 'corrections-v1';
         if (!data) {
           data = await createSampleData();
           await repo.save(data);
           await repo.setFlag(STARTER_FLAG);
           await repo.setFlag(SPREAD_FLAG);
+          await repo.setFlag(FIX_FLAG);
           set({ ...snapshotOf(data), loaded: true });
           return;
         }
@@ -232,6 +236,17 @@ export const useCosmos = create<CosmosState>((set, get) => {
           };
           await repo.save(data);
           await repo.setFlag(SPREAD_FLAG);
+        }
+        // 初期セットの壊れた記述（文の途中から始まる・かっこが合わない など）を、1回だけ直す。
+        // 壊れた文と全く同じ文だけを置き換えるので、自分で編集した記述は変わらない
+        if (!(await repo.getFlag(FIX_FLAG))) {
+          const corrections = (await import('../data/corrections.json')).default as unknown as Corrections;
+          const { data: fixed, changed } = applyCorrections(snapshotOf(data), corrections);
+          if (changed > 0) {
+            data = { version: 2, ...collectUnknown(fixed) };
+            await repo.save(data);
+          }
+          await repo.setFlag(FIX_FLAG);
         }
         // 以前の版を入れた後に、初期セットをまとめて削除していた人には入れない
         const removedBefore = (await repo.getFlag('starter-v1-added')) && !data.nodes.some((n) => n.origin === 'starter' && n.status === 'known');
