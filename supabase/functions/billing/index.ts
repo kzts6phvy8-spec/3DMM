@@ -166,8 +166,11 @@ async function handleWebhook(req: Request, signature: string): Promise<Response>
         ? 'free'
         : null;
     const end = obj.current_period_end ?? obj.items?.data?.[0]?.current_period_end;
+    // 期間の終わりに解約する予約（cancel_at_period_end・cancel_at）があれば、状態を canceling として記録する
+    // （それまでは有料のまま。画面で「解約済み（○日まで有料）」と出すため）
+    const canceling = plan === 'paid' && status !== 'past_due' && (obj.cancel_at_period_end || obj.cancel_at);
     const fields = {
-      subscription_status: status,
+      subscription_status: canceling ? 'canceling' : status,
       current_period_end: end ? new Date(end * 1000).toISOString() : null,
     };
     // まず、Stripe で有料になっている人だけ、プランを書き換える

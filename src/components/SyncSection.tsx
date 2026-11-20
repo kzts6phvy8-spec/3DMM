@@ -14,6 +14,7 @@ function billingText(b: Billing) {
   if (b.source === 'manual') return '管理画面で有料（お支払いなし）';
   const end = b.periodEnd ? `（次の更新：${formatTime(b.periodEnd).split(' ')[0]}）` : '';
   if (b.status === 'past_due') return `お支払いを確かめられていません。カードを確かめてください${end}`;
+  if (b.status === 'canceling') return b.periodEnd ? `解約済み（${formatTime(b.periodEnd).split(' ')[0]}まで有料）` : '解約済み（期間の終わりまで有料）';
   return `Stripeでお支払い中${end}`;
 }
 
