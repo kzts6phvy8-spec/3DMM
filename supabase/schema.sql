@@ -105,3 +105,6 @@ alter table public.profiles add column if not exists subscription_status text;
 alter table public.profiles add column if not exists current_period_end timestamptz;
 create unique index if not exists profiles_stripe_customer_id_key on public.profiles (stripe_customer_id);
 -- 本人は読めるだけ（今までどおり）。書き換えるのは管理画面と、支払いの関数（billing）だけ
+-- 支払いの関数（billing）が使う「管理用の役割」（service_role）に、profiles を読み書きする許可を付ける
+-- （新しい Supabase では、表を作っても service_role に自動で許可が付かないことがあるため）
+grant select, update on public.profiles to service_role;
