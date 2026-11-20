@@ -365,11 +365,27 @@ export function NodeSheet({
   }
 
   // ---- 登録済みの星 ----
-  return (
-    <section key={`known-${node.id}`} className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="星の詳細">
-      <div className="sheet-handle" />
-      {breadcrumb}
-      {header}
+  // 操作ボタンは小さめの1行にまとめる。削除と使い方の説明は「⋯」の中
+  const actions = (
+    <>
+      <div className="sheet-actions compact">
+        {!expanded && <button className="primary" onClick={() => setExpanded(true)}>開く</button>}
+        <button onClick={() => focusOn(node.id)}>◎ 焦点</button>
+        <button onClick={() => setMode('connect')}>⟷ つなぐ</button>
+        <button onClick={() => onEdit(node.id)}>✎ 編集</button>
+        {expanded && <button onClick={() => setExpanded(false)}>たたむ</button>}
+        <button onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen} aria-label="その他の操作">⋯</button>
+      </div>
+      {moreOpen && (
+        <div className="sheet-more">
+          <button className="danger" onClick={() => { setMoreOpen(false); handleDelete(); }}>削除</button>
+          <p className="muted small">星を動かすには、宇宙で星を長押ししてそのまま動かします。</p>
+        </div>
+      )}
+    </>
+  );
+  const intro = (
+    <>
       <div className="sheet-sub">
         <span>{STAR_KINDS[node.kind]}</span>
         {node.category && <span>・{node.category}</span>}
@@ -387,24 +403,30 @@ export function NodeSheet({
       )}
       <NeighborChips key={`nb-${node.id}`} star={node} own={own} backlinks={backlinks} related={related} byId={byId} />
       <SearchEntry starId={node.id} />
+    </>
+  );
 
-      <div className="sheet-actions">
-        {!expanded && <button className="primary" onClick={() => setExpanded(true)}>開く</button>}
-        {expanded && <button onClick={() => setExpanded(false)}>たたむ</button>}
-        <button onClick={() => focusOn(node.id)}>◎ 焦点</button>
-        <button onClick={() => setMode('connect')}>⟷ つなぐ</button>
-        <button onClick={() => setMoreOpen(!moreOpen)} aria-expanded={moreOpen} aria-label="その他の操作">⋯</button>
-      </div>
-      {moreOpen && (
-        <div className="sheet-more">
-          <button onClick={() => { setMoreOpen(false); onEdit(node.id); }}>✎ 編集</button>
-          <button className="danger" onClick={() => { setMoreOpen(false); handleDelete(); }}>削除</button>
-          <p className="muted small">星を動かすには、宇宙で星を長押ししてそのまま動かします。</p>
-        </div>
-      )}
+  // たたんでいるとき（プレビュー）は今までどおり。開いたときは、名前より下を全部まとめてスクロールし、
+  // 記述を先に、操作ボタンを記述の後に置く（上の部分が場所を取って記述が小さくしか見えなくならないように）
+  if (!expanded) {
+    return (
+      <section key={`known-${node.id}`} className="sheet" aria-label="星の詳細">
+        <div className="sheet-handle" />
+        {breadcrumb}
+        {header}
+        {intro}
+        {actions}
+      </section>
+    );
+  }
 
-      {expanded && (
-        <div className="sheet-body">
+  return (
+    <section key={`known-${node.id}`} className="sheet is-expanded" aria-label="星の詳細">
+      <div className="sheet-handle" />
+      {breadcrumb}
+      {header}
+      <div className="sheet-body whole">
+          {intro}
           <div className="section-head">
             <h3>記述（{own.length}）</h3>
             <button className="small-btn" onClick={() => onEditStatement(node.id, null)}>＋ 記述を追加</button>
@@ -424,6 +446,8 @@ export function NodeSheet({
               </div>
             ))}
           </div>
+
+          {actions}
 
           <h3>意味のつながり（{related.length}）</h3>
           {related.length === 0 && <p className="muted">「⟷ つなぐ」で他の星と結べます。</p>}
@@ -470,8 +494,7 @@ export function NodeSheet({
             <dt>登録</dt><dd>{formatDate(node.createdAt)}</dd>
             {node.origin === 'starter' && (<><dt>出どころ</dt><dd>初期セット（AIが用意。出典はWikipedia）</dd></>)}
           </dl>
-        </div>
-      )}
+      </div>
     </section>
   );
 }
