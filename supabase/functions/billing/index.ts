@@ -66,6 +66,9 @@ Deno.serve(async (req) => {
       success_url: back('success'),
       cancel_url: back('cancel'),
       locale: 'ja',
+      // Managed Payments（Stripe が販売者の代わりになるサービス）は使わない。普通のカード決済にする
+      // （2026-11-20、利用者が Stripe を選んだときの決定。使うなら商品に税コードを設定してこの行を消す）
+      'managed_payments[enabled]': 'false',
     };
     if (profile?.stripe_customer_id) params.customer = profile.stripe_customer_id;
     else if (user.email) params.customer_email = user.email;
