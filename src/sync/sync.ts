@@ -81,7 +81,7 @@ function deviceId(): string {
 
 // ---- Supabase につなぐ（使うときだけ読み込む。同期を使わない人の読み込みを軽くするため） ----
 let clientPromise: Promise<SupabaseClient> | null = null;
-function client(): Promise<SupabaseClient> {
+export function client(): Promise<SupabaseClient> {
   if (!clientPromise) {
     clientPromise = import('@supabase/supabase-js').then(({ createClient }) =>
       createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } }),

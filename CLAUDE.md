@@ -167,6 +167,7 @@ src/
   lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
   lib/streak.ts           毎日の連続記録（やった日の一覧から日数を数える）。起動時のカードは components/StreakCard.tsx
   lib/plan.ts             利用プラン（無料／有料）。課金の仕組みはまだなく、常に無料（同期の有料かどうかは Supabase の profiles で決まる）
+  ai/search.ts            「🔭 AIで調べる」：Supabase の Edge Function（supabase/functions/ai-search。鍵で Gemini／Claude を切り替え）を呼び、結果を確かめる。結果を星にするのは useCosmos の applyAiSearch
   sync/                   端末の同期（config：接続先と公開してよい鍵／payload：圧縮／sync：ログイン・そろえ方）
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/warmup.ts           手が空いているときに、検索の索引などの重い下ごしらえを先に済ませる

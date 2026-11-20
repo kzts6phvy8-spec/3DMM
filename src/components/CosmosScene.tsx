@@ -140,7 +140,9 @@ function FocusRig() {
     if (!node) return;
     const target = new THREE.Vector3(...node.position);
     const dir = camera.position.clone().sub(controls.target).normalize();
-    const distance = fitDistance(node, camera as THREE.PerspectiveCamera, controls.maxDistance * 0.95);
+    // つながっている星が宇宙の反対側にあることもある。必要なら、引ける距離の上限も広げて全部を収める
+    const distance = fitDistance(node, camera as THREE.PerspectiveCamera, 5000);
+    if (distance > controls.maxDistance * 0.95) controls.maxDistance = distance / 0.95;
     anim.current = { target, camPos: target.clone().add(dir.multiplyScalar(distance)) };
     // ユーザーが触ったらアニメーションを止める
     const stop = () => (anim.current = null);
@@ -347,8 +349,13 @@ function SceneBridge() {
       }
       return [best.x, best.y, best.z];
     };
+    sceneApi.getViewBasis = () => {
+      const e = camera.matrixWorld.elements;
+      return { right: [e[0], e[1], e[2]], up: [e[4], e[5], e[6]] };
+    };
     return () => {
       sceneApi.getSpawnPosition = null;
+      sceneApi.getViewBasis = null;
     };
   }, [camera, controls]);
   return null;

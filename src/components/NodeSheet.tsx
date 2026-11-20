@@ -16,6 +16,7 @@ import { engagementSummary } from '../lib/engagement';
 import { WikipediaPreview } from './WikipediaPreview';
 import { SuggestionList } from './SuggestionList';
 import { SeedButton } from './SeedButton';
+import { AiSearchButton, SearchEntry } from './AiSearchButton';
 import { WikiStatementSuggestions } from './WikiStatementSuggestions';
 import { OtherSources } from './OtherSources';
 
@@ -350,6 +351,7 @@ export function NodeSheet({
               'どこかの記述でリンクされていますが、中身はまだありません。'
             )}
           </p>
+          <AiSearchButton key={`ai-${node.id}`} query={displayName(node)} targetId={node.id} primary />
           <WikipediaPreview key={node.id} starId={node.id} title={node.title} />
           <SearchButtons query={node.title} />
           <div className="sheet-actions inline">
@@ -384,6 +386,7 @@ export function NodeSheet({
         </p>
       )}
       <NeighborChips key={`nb-${node.id}`} star={node} own={own} backlinks={backlinks} related={related} byId={byId} />
+      <SearchEntry starId={node.id} />
 
       <div className="sheet-actions">
         {!expanded && <button className="primary" onClick={() => setExpanded(true)}>開く</button>}
@@ -450,6 +453,7 @@ export function NodeSheet({
 
           <SuggestionList key={node.id} star={node} />
           <SeedButton key={`seed-${node.id}`} star={node} />
+          <AiSearchButton key={`ai-${node.id}`} query={displayName(node)} targetId={node.id} />
 
           {backlinks.length > 0 && (
             <>
