@@ -4,7 +4,8 @@
 // 使うAIは、預けた鍵で決まる（交換できるようにするため）：
 //   GEMINI_API_KEY があれば Google の Gemini（Google検索で確かめる）。モデルは GEMINI_MODEL で変えられる
 //   なければ ANTHROPIC_API_KEY で Claude（Web検索で確かめる）
-import Anthropic from 'npm:@anthropic-ai/sdk';
+// Claude 用の部品は重いので、Claude を使うときだけ読み込む（起動を軽くするため）
+import type Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const MODEL = 'claude-opus-5-5';
@@ -115,12 +116,57 @@ Deno.serve(async (req) => {
   }
   if (!query || query.length > 100) return json({ error: '調べる言葉を1〜100文字で入れてください', code: 'input' }, 400);
 
-  return geminiKey ? askGemini(query, geminiKey) : askClaude(query, claudeKey!);
+  const started = Date.now();
+  const work = (geminiKey ? askGemini(query, geminiKey) : askClaude(query, claudeKey!)).finally(() =>
+    console.log('ai-search 所要', Math.round((Date.now() - started) / 1000), '秒'),
+  );
+  return keepAlive(work);
 });
+
+// 答えができるまで時間がかかると、iPhone の Safari が途中で通信を切ることがある（約60秒、推測）。
+// そこで、返事をすぐ始め、5秒ごとに空白を送ってつないでおき、最後に答えのJSONを送る（JSONの前の空白は読むときに無視される）。
+// 始めに状態（200）を決めてしまうので、失敗したときは本文の error と status で伝える。アプリは本文を見て見分ける。
+function keepAlive(work: Promise<Response>): Response {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(enc.encode(' '));
+      const timer = setInterval(() => {
+        try {
+          controller.enqueue(enc.encode(' '));
+        } catch {
+          /* 相手が切ったあとは何もしない */
+        }
+      }, 5000);
+      let out: Record<string, unknown>;
+      try {
+        const r = await work;
+        const text = await r.text();
+        try {
+          out = JSON.parse(text);
+        } catch {
+          out = { error: 'AIの結果を読み取れませんでした。もう一度試してください', code: 'incomplete' };
+        }
+        if (!r.ok) out.status = r.status;
+      } catch (e) {
+        out = { error: 'AIにつながりませんでした', code: 'network', detail: String(e).slice(0, 200), status: 502 };
+      }
+      clearInterval(timer);
+      try {
+        controller.enqueue(enc.encode(JSON.stringify(out)));
+        controller.close();
+      } catch {
+        /* 相手が切ったあとは何もしない */
+      }
+    },
+  });
+  return new Response(stream, { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
+}
 
 // ================= Claude =================
 async function askClaude(query: string, apiKey: string): Promise<Response> {
-  const client = new Anthropic({ apiKey });
+  const SDK = (await import('npm:@anthropic-ai/sdk')).default;
+  const client = new SDK({ apiKey });
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: `「${query}」を調べてください。` }];
   try {
     for (let i = 0; i <= MAX_CONTINUE; i++) {
@@ -149,9 +195,9 @@ async function askClaude(query: string, apiKey: string): Promise<Response> {
     }
     return json({ error: 'AIが結果をまとめられませんでした。もう一度試してください', code: 'incomplete' }, 502);
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return json({ error: '混み合っています。少し待ってから試してください', code: 'busy' }, 429);
-    if (e instanceof Anthropic.AuthenticationError) return json({ error: 'AIの鍵が正しくありません', code: 'nokey' }, 503);
-    if (e instanceof Anthropic.APIError) return json({ error: `AIの呼び出しに失敗しました（${e.status}）`, code: 'api' }, 502);
+    if (e instanceof SDK.RateLimitError) return json({ error: '混み合っています。少し待ってから試してください', code: 'busy' }, 429);
+    if (e instanceof SDK.AuthenticationError) return json({ error: 'AIの鍵が正しくありません', code: 'nokey' }, 503);
+    if (e instanceof SDK.APIError) return json({ error: `AIの呼び出しに失敗しました（${e.status}）`, code: 'api' }, 502);
     return json({ error: 'AIにつながりませんでした', code: 'network' }, 502);
   }
 }
@@ -161,57 +207,119 @@ interface GeminiChunk { web?: { uri?: string; title?: string } }
 interface GeminiSupport { segment?: { text?: string }; groundingChunkIndices?: number[] }
 
 async function askGemini(query: string, apiKey: string): Promise<Response> {
-  // 無料枠で使えないモデルもあるので、上限（429）や見つからない（404）ときは次のモデルで試す
-  const models = Deno.env.get('GEMINI_MODEL')
-    ? [Deno.env.get('GEMINI_MODEL')!]
-    : ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  // Google検索（グラウンディング）は無料枠では使えない（Googleの料金表で「Not available」）。有料枠の gemini-3.8-flash だけを使う。
+  // モデルは Secrets の GEMINI_MODEL で変えられる。見つからない（404）ときだけ、Googleが勧めるモデルで1回試す
+  const models: string[] = [Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash'];
   const prompt =
     `「${query}」を、Google検索で確かめながら調べてください。\n` +
     '結果は、次のJSONスキーマに合うJSONだけで答えてください（前後に説明や```を付けない）。source_urls と sources は空の配列でかまいません（出典はこちらで付けます）。\n' +
     JSON.stringify(submitTool.input_schema);
-  const body = (withSchema: boolean) => ({
+  // 考える深さは浅く（low）して、速く・安くする（2026-11-20に利用者が決定）
+  const body = (withSchema: boolean, lowThinking: boolean) => ({
     systemInstruction: { parts: [{ text: SYSTEM }] },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     tools: [{ google_search: {} }],
-    generationConfig: withSchema ? { responseMimeType: 'application/json', responseJsonSchema: submitTool.input_schema } : {},
+    generationConfig: {
+      ...(withSchema ? { responseMimeType: 'application/json', responseJsonSchema: submitTool.input_schema } : {}),
+      ...(lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
+    },
   });
 
   // Googleが返した理由の文を取り出す（画面とLogsに出して、原因がわかるようにする）
-  const reasonOf = async (r: globalThis.Response) => {
-    const t = await r.text();
+  const reasonOf = async (r: globalThis.Response) => reasonText(await r.text());
+  const reasonText = (t: string) => {
     try {
-      return String(JSON.parse(t)?.error?.message ?? t).slice(0, 300);
+      const err = JSON.parse(t)?.error ?? {};
+      // 上限（429）のときは、どの上限に当たったか（quotaId と上限の数）だけを短く出す。画面の文字数に収めるため
+      const quotas: string[] = [];
+      for (const d of Array.isArray(err.details) ? err.details : []) {
+        for (const v of Array.isArray(d?.violations) ? d.violations : []) {
+          if (v?.quotaId) quotas.push(`${v.quotaId}${v.quotaValue !== undefined ? `=${v.quotaValue}` : ''}`);
+        }
+      }
+      if (quotas.length) return quotas.join(', ').slice(0, 200);
+      const msg = String(err.message ?? t);
+      // 文の後ろのほうにある「* Quota exceeded for metric: …, limit: 0, model: …」を取り出す（前半の決まり文句は省く）
+      const hits = [...msg.matchAll(/metric:\s*([^,\s]+),\s*limit:\s*(\d+)/g)].map(
+        (m) => `${m[1].split('/').pop()} 上限${m[2]}`,
+      );
+      if (hits.length) return [...new Set(hits)].join(', ').slice(0, 200);
+      return msg.replace(/^You exceeded your current quota[^]*?ai\.dev\/rate-limit\.?\s*/, '').slice(0, 200) || msg.slice(0, 200);
     } catch {
-      return t.slice(0, 300);
+      return t.slice(0, 200);
     }
   };
-  const call = (model: string, withSchema: boolean) =>
+  const call = (model: string, withSchema: boolean, lowThinking = true) =>
     fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body(withSchema)),
+      body: JSON.stringify(body(withSchema, lowThinking)),
+      // 返事が来ないまま待ち続けないように、時間を区切る。検索しながら考えるので時間がかかることがある。
+      // Supabase の関数は150秒で止められ、アプリは120秒で打ち切るので、それより前の100秒にする
+      signal: AbortSignal.timeout(100000),
     });
 
   let res: globalThis.Response | null = null;
   const tried: string[] = [];
   try {
-    for (const model of models) {
+    for (let i = 0; i < models.length && i < 6; i++) {
+      const model = models[i];
       let r = await call(model, true);
       // 検索と決まった形の答え（スキーマ）を同時に使えないモデルなら、スキーマなしでもう一度
-      if (r.status === 400) r = await call(model, false);
+      if (r.status === 400) {
+        console.error('gemini 400（スキーマなしで試し直す）', model, (await r.text()).slice(0, 500));
+        r = await call(model, false);
+      }
+      // 考える深さの設定を受け付けないモデルなら、設定なしでもう一度
+      if (r.status === 400) {
+        console.error('gemini 400（考える深さの設定なしで試し直す）', model, (await r.text()).slice(0, 500));
+        r = await call(model, false, false);
+      }
       if (r.status === 429 || r.status === 404) {
-        const why = await reasonOf(r);
-        console.error('gemini', model, r.status, why);
-        tried.push(`${model}（${r.status}）：${why}`);
+        const raw = await r.text();
+        // Logs には、Googleの返事を切らずに残す（原因を調べるため）
+        console.error('gemini', model, r.status, raw.slice(0, 2000));
+        // 「このモデルは新しい利用者には使えません。models/○○ を使ってください」と言われたら、そのモデルでも試す
+        const suggested = raw.match(/use models\/([\w.-]+)/)?.[1]?.replace(/\.$/, '');
+        if (r.status === 404 && suggested && !models.includes(suggested)) models.push(suggested);
+        tried.push(`${model}（${r.status}）：${reasonText(raw)}`);
         continue;
       }
       res = r;
       break;
     }
-  } catch {
-    return json({ error: 'AIにつながりませんでした', code: 'network' }, 502);
+  } catch (e) {
+    const timedOut = e instanceof DOMException && e.name === 'TimeoutError';
+    console.error('gemini fetch failed', String(e));
+    return json(
+      timedOut
+        ? { error: 'AIの返事が100秒来ませんでした。もう一度試してください', code: 'network', detail: 'timeout 100s' }
+        : { error: 'AIにつながりませんでした', code: 'network', detail: String(e).slice(0, 200) },
+      502,
+    );
   }
-  if (!res) return json({ error: '無料枠で使える回数を超えたか、このモデルは無料枠で使えません', code: 'busy', detail: tried.join(' ／ ').slice(0, 600) }, 429);
+  if (!res) {
+    // 原因の切り分け：Google検索を付けずに、短い文だけで1回試す（答えは使わない）。
+    // これが通るなら「モデルは使えるが、Google検索（グラウンディング）が無料枠で使えない」とわかる
+    let probe = '';
+    const probeModel = models.find((m) => tried.some((t) => t.startsWith(`${m}（429）`))) ?? models[0];
+    console.error('gemini probe (検索なし) 開始', probeModel);
+    try {
+      const p = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(probeModel)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'OKとだけ答えてください' }] }] }),
+        signal: AbortSignal.timeout(30000),
+      });
+      const pt = await p.text();
+      console.error('gemini probe (検索なし)', probeModel, p.status, pt.slice(0, 1000));
+      probe = p.ok ? `検索なしなら ${probeModel} は使える（Google検索が無料枠で使えない可能性）` : `検索なしでも ${probeModel} は ${p.status}`;
+    } catch (e) {
+      console.error('gemini probe (検索なし) 失敗', probeModel, String(e));
+      probe = `検索なしの確認は ${probeModel} から30秒返事なし`;
+    }
+    return json({ error: '無料枠で使える回数を超えたか、このモデルは無料枠で使えません', code: 'busy', detail: `【${probe}】 ` + tried.join(' ／ ').slice(0, 500) }, 429);
+  }
   if (res.status === 401 || res.status === 403) {
     const why = await reasonOf(res);
     console.error('gemini auth', res.status, why);

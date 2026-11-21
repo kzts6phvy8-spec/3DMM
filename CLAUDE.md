@@ -138,7 +138,8 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 
 最初から全機能を実装しないこと。最初の段階では、AI機能・会員登録・課金・クラウド同期を実装しない。
 
-- 2026-11-14：利用者の要望で、端末の同期（有料プランの機能）とそのためのログインを追加した（docs/ux/02-scope.md F18）。支払いの仕組みはまだない。
+- 2026-11-14：利用者の要望で、端末の同期（有料プランの機能）とそのためのログインを追加した（docs/ux/02-scope.md F18）。
+- 2026-11-20：有料プランの支払い（Stripe・月額と年額）を追加した（docs/billing-setup.md）。
 
 ## 11. 完成の定義
 
@@ -166,9 +167,10 @@ src/
   lib/compare.ts          友達の宇宙と重ねる（宇宙カードの作成・読み込み・比較）
   lib/quiz.ts             言葉クイズ（出題の順番・4択の作り方）
   lib/streak.ts           毎日の連続記録（やった日の一覧から日数を数える）。起動時のカードは components/StreakCard.tsx
-  lib/plan.ts             利用プラン（無料／有料）。課金の仕組みはまだなく、常に無料（同期の有料かどうかは Supabase の profiles で決まる）
+  lib/plan.ts             言葉クイズの回数の入口（今は常に無料扱い。有料プランの支払い・同期の有料かどうかは Supabase の profiles で決まる）
   ai/search.ts            「🔭 AIで調べる」：Supabase の Edge Function（supabase/functions/ai-search。鍵で Gemini／Claude を切り替え）を呼び、結果を確かめる。結果を星にするのは useCosmos の applyAiSearch
   sync/                   端末の同期（config：接続先と公開してよい鍵／payload：圧縮／sync：ログイン・そろえ方）
+                          有料プランの支払い（Stripe）も sync.ts（startCheckout・openBillingPortal）。関数は supabase/functions/billing、手順は docs/billing-setup.md
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/warmup.ts           手が空いているときに、検索の索引などの重い下ごしらえを先に済ませる
   lib/labelRegistry.ts    星の名前ラベルの要素（決まった数を使い回す。星が多くても軽く）
@@ -179,6 +181,7 @@ src/
   data/vital.json         初期セット第3弾（Wikipedia基本1000項目。scripts/build_vital.py で作成）
   data/vital10k.json      初期セット第4弾（Wikipedia「1万の項目」から約8,700個。scripts/build_vital10k.py で作成）
   data/memoKeys.json      利用者のメモから作った星のキーだけの一覧（以前の初期セット第5・6弾。2026-11-21に初期セットから外し、元データもリポジトリから消した）。初期セットをまとめて削除しても消さず、読み込み時に「自分の星」にする
+  data/corrections.json   初期セットの壊れた記述の直し方（元データは直し済み）。端末のデータには data/applyCorrections.ts で1回だけ反映（版は useCosmos.ts の FIX_FLAG）
   components/StarField.tsx 星をまとめて描く・タップ／長押しの判定（星が多くても軽く）
   sampleData.ts           初回起動時のサンプル
   components/             画面部品（3D空間・ボトムシート・フォーム）

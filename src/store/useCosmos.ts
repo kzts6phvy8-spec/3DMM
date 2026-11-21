@@ -13,6 +13,7 @@ import type {
 import { indexedDbRepository, type CosmosRepository } from '../storage/repository';
 import { createSampleData } from '../sampleData';
 import { mergeDataset, ownMemoStars, removeStarter } from '../data/mergeDataset';
+import { applyCorrections, type Corrections } from '../data/applyCorrections';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
 import { addDay, mergeDays } from '../lib/streak';
@@ -166,6 +167,18 @@ function collectUnknown(d: Data): Data {
   return nodes.length === d.nodes.length ? d : { ...d, nodes };
 }
 
+/**
+ * 名前から星を探す。「名前（補足）」と完全に同じ星 → 補足のない同じ名前の星 → 別名 の順。
+ * 名前だけのときに、補足の付いた別の意味の星（例：「回転」→「回転（スキー）」）へつながないようにする。
+ */
+function findByName(nodes: KnowledgeNode[], name: string): KnowledgeNode | undefined {
+  return (
+    nodes.find((n) => displayName(n) === name) ??
+    nodes.find((n) => !n.qualifier && n.title === name) ??
+    nodes.find((n) => n.aliases.includes(name))
+  );
+}
+
 export const useCosmos = create<CosmosState>((set, get) => {
   const persist = () => {
     const s = get();
@@ -221,11 +234,14 @@ export const useCosmos = create<CosmosState>((set, get) => {
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
         const STARTER_FLAG = 'starter-v6-added';
         const SPREAD_FLAG = 'layout-spread-v1';
+        // 初期セットの壊れた記述を直した版。直し方（corrections.json）を増やしたら上げる
+        const FIX_FLAG = 'corrections-v2';
         if (!data) {
           data = await createSampleData();
           await repo.save(data);
           await repo.setFlag(STARTER_FLAG);
           await repo.setFlag(SPREAD_FLAG);
+          await repo.setFlag(FIX_FLAG);
           set({ ...snapshotOf(data), loaded: true });
           return;
         }
@@ -240,6 +256,17 @@ export const useCosmos = create<CosmosState>((set, get) => {
           };
           await repo.save(data);
           await repo.setFlag(SPREAD_FLAG);
+        }
+        // 初期セットの壊れた記述（文の途中から始まる・かっこが合わない など）を、1回だけ直す。
+        // 壊れた文と全く同じ文だけを置き換えるので、自分で編集した記述は変わらない
+        if (!(await repo.getFlag(FIX_FLAG))) {
+          const corrections = (await import('../data/corrections.json')).default as unknown as Corrections;
+          const { data: fixed, changed } = applyCorrections(snapshotOf(data), corrections);
+          if (changed > 0) {
+            data = { version: 2, ...collectUnknown(fixed) };
+            await repo.save(data);
+          }
+          await repo.setFlag(FIX_FLAG);
         }
         // 以前の版を入れた後に、初期セットをまとめて削除していた人には入れない
         const removedBefore = (await repo.getFlag('starter-v1-added')) && !data.nodes.some((n) => n.origin === 'starter' && n.status === 'known');
@@ -353,7 +380,8 @@ export const useCosmos = create<CosmosState>((set, get) => {
     replaceAll(data, label = 'バックアップから復元しました') {
       const before = snapshotOf(get());
       set({
-        ...snapshotOf(ownMemoStars(data)),
+        // どこからも参照されない「まだ知らない星」は取り除く（データの決まり）。メモの星は「自分の星」にする
+        ...collectUnknown(snapshotOf(ownMemoStars(data))),
         selectedId: null,
         trail: [],
         undo: label === null ? null : { label, snapshot: before, expiresAt: Date.now() + 10000 },
@@ -532,10 +560,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
         text.replace(/\[\[([^\]@][^\]]*)\]\]/g, (_, raw: string) => {
           const name = raw.trim();
           const { nodes } = get();
-          const found =
-            nodes.find((n) => displayName(n) === name) ??
-            nodes.find((n) => n.title === name) ??
-            nodes.find((n) => n.aliases.includes(name));
+          const found = findByName(nodes, name);
           return linkToken((found ?? get().ensureStar(name, starId)).id);
         });
       input = {
@@ -585,13 +610,20 @@ export const useCosmos = create<CosmosState>((set, get) => {
       const statements = [...before.statements];
       const relations = [...before.relations];
       const norm = (x: string) => x.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+      // 名前だけ（補足なし）のときは、補足の付いた別の意味の星（例：回転（スキー））にはつながない
       const findStar = (name: string) => {
         const k = norm(name);
-        return nodes.find((n) => norm(displayName(n)) === k || norm(n.title) === k || n.aliases.some((a) => norm(a) === k));
+        return (
+          nodes.find((n) => norm(displayName(n)) === k) ??
+          nodes.find((n) => !n.qualifier && norm(n.title) === k) ??
+          nodes.find((n) => n.aliases.some((a) => norm(a) === k))
+        );
       };
 
       // ---- 調べた言葉の星（なければ作る） ----
-      let main = (targetId && nodes.find((n) => n.id === targetId)) || findStar(result.title);
+      let main =
+        (targetId && nodes.find((n) => n.id === targetId)) ||
+        findStar(result.qualifier ? `${result.title}（${result.qualifier}）` : result.title);
       if (!main) {
         // 枝の中に宇宙にすでにある星があれば、その近くに置く（つながりの線が短く、見つけやすい）
         const anchor = result.branches.map((b) => findStar(b.name)).find((n) => n);
@@ -755,8 +787,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
       const idx = parts.findIndex((p) => !p.startsWith('[[@') && p.includes(w));
       if (idx < 0) return null;
       const { nodes } = get();
-      const target =
-        nodes.find((n) => displayName(n) === w) ?? nodes.find((n) => n.title === w) ?? nodes.find((n) => n.aliases.includes(w)) ?? get().ensureStar(w, st.starId);
+      const target = findByName(nodes, w) ?? get().ensureStar(w, st.starId);
       if (target.id === st.starId) return null; // 自分自身へのリンクは作らない
       parts[idx] = parts[idx].replace(w, linkToken(target.id));
       const text = parts.join('');

@@ -69,7 +69,11 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
   const sb = await client();
   const { data: s } = await sb.auth.getSession();
   if (!s.session) return { ok: false, code: 'login', message: 'AIで調べるには、ログインが必要です（「その他」→「同期」）。' };
-  const { data, error } = await sb.functions.invoke(AI_SEARCH_FUNCTION, { body: { query } });
+  // 返事が来ないまま「調べています」で止まらないように、2分で打ち切る
+  const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 120_000));
+  const answer = await Promise.race([sb.functions.invoke(AI_SEARCH_FUNCTION, { body: { query } }), timeout]);
+  if (answer === 'timeout') return { ok: false, code: 'network', message: 'AIからの返事が2分来ませんでした。少し待ってから、もう一度試してください。' };
+  const { data, error } = answer;
   if (error) {
     // サーバーが返した理由（日本語）を読み出す
     let body: { error?: string; code?: string; detail?: string } | null = null;
@@ -81,6 +85,12 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
     }
     const detail = typeof body?.detail === 'string' && body.detail ? `（AIの会社からの理由：${body.detail.slice(0, 400)}）` : '';
     return { ok: false, code: body?.code ?? 'network', message: (body?.error ?? 'AIにつながりませんでした。通信を確かめて、もう一度試してください。') + detail };
+  }
+  // 関数は通信をつないでおくため、失敗も「成功（200）」の形で返し、本文の error で伝える
+  const failed = data as { error?: unknown; code?: unknown; detail?: unknown } | null;
+  if (failed && typeof failed.error === 'string') {
+    const detail = typeof failed.detail === 'string' && failed.detail ? `（AIの会社からの理由：${failed.detail.slice(0, 400)}）` : '';
+    return { ok: false, code: typeof failed.code === 'string' ? failed.code : 'network', message: failed.error + detail };
   }
   const result = normalizeResult((data as { result?: unknown })?.result, query);
   if (!result) return { ok: false, code: 'empty', message: 'AIの結果を読み取れませんでした。もう一度試してください。' };
