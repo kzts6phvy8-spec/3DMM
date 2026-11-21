@@ -180,7 +180,7 @@ src/
   data/buildDataset.ts    初期データを [[名前]] 形式から組み立てる
   data/vital.json         初期セット第3弾（Wikipedia基本1000項目。scripts/build_vital.py で作成）
   data/vital10k.json      初期セット第4弾（Wikipedia「1万の項目」から約8,700個。scripts/build_vital10k.py で作成）
-  data/chrono.json        初期セット第5・6弾（利用者のメモ「クイズ年表」と知識メモから、出来事の星と年の星。scripts/build_chrono.py で作成）
+  data/memoKeys.json      利用者のメモから作った星のキーだけの一覧（以前の初期セット第5・6弾。2026-11-21に初期セットから外し、元データもリポジトリから消した）。初期セットをまとめて削除しても消さず、読み込み時に「自分の星」にする
   data/corrections.json   初期セットの壊れた記述の直し方（元データは直し済み）。端末のデータには data/applyCorrections.ts で1回だけ反映（版は useCosmos.ts の FIX_FLAG）
   components/StarField.tsx 星をまとめて描く・タップ／長押しの判定（星が多くても軽く）
   sampleData.ts           初回起動時のサンプル
@@ -193,5 +193,5 @@ src/
 - 言葉クイズの問題の作り直し: `python3 scripts/build_quiz.py <Wikipediaの要約.json> src/data/quizWords.json`
 - 初期セット第3弾の作り直し: `python3 scripts/build_vital.py <既存の星の名前一覧.json> src/data/vital.json`（Wikipediaの制限に配慮して待ちながら取得する）
 - 初期セット第4弾の作り直し: `python3 scripts/fetch_vital10k.py <作業フォルダ>` で記事の冒頭を取得し、`python3 scripts/build_vital10k.py <一覧.json> <記事.json> <既存の星の名前.json> src/data/vital10k.json`
-- 初期セット第5弾の作り直し: `node scripts/dump_starter_names.ts > 既存.json` のあと `python3 scripts/build_chrono.py scripts/chrono_timeline.txt,scripts/notes_trivia.txt 既存.json 記事.json src/data/chrono.json 確認用.txt`（直した点は docs/chrono-corrections.md）
+- 利用者の個人的なメモ（クイズ年表・知識メモ）は、リポジトリが公開されているため置かない（2026-11-21に利用者が決定）
 - 初期セットを増やしたら、`src/store/useCosmos.ts` の `STARTER_FLAG` の版を上げる（使っている端末に1回だけ追加される）

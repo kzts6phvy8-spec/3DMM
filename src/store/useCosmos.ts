@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import { indexedDbRepository, type CosmosRepository } from '../storage/repository';
 import { createSampleData } from '../sampleData';
-import { mergeDataset, removeStarter } from '../data/mergeDataset';
+import { mergeDataset, ownMemoStars, removeStarter } from '../data/mergeDataset';
 import { applyCorrections, type Corrections } from '../data/applyCorrections';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
@@ -223,6 +223,14 @@ export const useCosmos = create<CosmosState>((set, get) => {
       }
       try {
         let data = await repo.load();
+        // 利用者のメモから作った星は「自分の星」にする（以前は初期セットの印が付いていた）
+        if (data) {
+          const owned = ownMemoStars(data);
+          if (owned !== data) {
+            data = owned;
+            await repo.save(data);
+          }
+        }
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
         const STARTER_FLAG = 'starter-v6-added';
         const SPREAD_FLAG = 'layout-spread-v1';
@@ -372,8 +380,8 @@ export const useCosmos = create<CosmosState>((set, get) => {
     replaceAll(data, label = 'バックアップから復元しました') {
       const before = snapshotOf(get());
       set({
-        // どこからも参照されない「まだ知らない星」は取り除く（データの決まり）
-        ...collectUnknown(snapshotOf(data)),
+        // どこからも参照されない「まだ知らない星」は取り除く（データの決まり）。メモの星は「自分の星」にする
+        ...collectUnknown(snapshotOf(ownMemoStars(data))),
         selectedId: null,
         trail: [],
         undo: label === null ? null : { label, snapshot: before, expiresAt: Date.now() + 10000 },
