@@ -143,6 +143,13 @@ function FocusRig() {
     // つながっている星が宇宙の反対側にあることもある。必要なら、引ける距離の上限も広げて全部を収める
     const distance = fitDistance(node, camera as THREE.PerspectiveCamera, 5000);
     if (distance > controls.maxDistance * 0.95) controls.maxDistance = distance / 0.95;
+    // 引いた先からでも宇宙の奥まで見えるように、見える距離の限界も広げる（広げないと、星も名前も消えて真っ暗になる）
+    const cam = camera as THREE.PerspectiveCamera;
+    const needFar = controls.maxDistance * 1.6;
+    if (cam.far < needFar) {
+      cam.far = needFar;
+      cam.updateProjectionMatrix();
+    }
     anim.current = { target, camPos: target.clone().add(dir.multiplyScalar(distance)) };
     // ユーザーが触ったらアニメーションを止める
     const stop = () => (anim.current = null);

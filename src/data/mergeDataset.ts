@@ -1,6 +1,17 @@
 // 初期セットなどのデータを、今のデータを消さずに追加・削除する
 import type { CosmosData, KnowledgeNode } from '../types';
 import { displayName, parseLinkIds } from '../lib/knowledge';
+import memoKeys from './memoKeys.json';
+
+/** 利用者のメモから作った星のID（以前の初期セット第5・6弾。2026-11-21に初期セットから外した） */
+const MEMO_IDS = new Set([...memoKeys.stars, ...memoKeys.extra].map((k) => `starter-${k}`));
+export const isMemoStar = (id: string) => MEMO_IDS.has(id);
+
+/** メモの星を「自分の星」にする（初期セットの印を外す）。同期で古い印のデータが届いても、読み込むたびに直す */
+export function ownMemoStars<T extends { nodes: KnowledgeNode[] }>(data: T): T {
+  if (!data.nodes.some((n) => n.origin === 'starter' && MEMO_IDS.has(n.id))) return data;
+  return { ...data, nodes: data.nodes.map((n) => (n.origin === 'starter' && MEMO_IDS.has(n.id) ? { ...n, origin: 'user' as const } : n)) };
+}
 
 type Data = Omit<CosmosData, 'version'>;
 
@@ -110,11 +121,14 @@ export function mergeDataset(current: Data, incoming: Data): { data: Data; added
 export function removeStarter(current: Data): { data: Data; removed: number } {
   const isStarterStatement = (id: string) => id.startsWith('starter-');
   const touched = new Set(current.statements.filter((s) => !isStarterStatement(s.id)).map((s) => s.starId));
-  const removeIds = new Set(current.nodes.filter((n) => n.origin === 'starter' && !touched.has(n.id)).map((n) => n.id));
+  // 利用者のメモから作った星（以前の初期セット第5・6弾）は、利用者自身の知識なので消さない
+  const removeIds = new Set(
+    current.nodes.filter((n) => n.origin === 'starter' && !touched.has(n.id) && !isMemoStar(n.id)).map((n) => n.id),
+  );
 
-  // 初期セットの記述を消す。ただし、自分で記述を書き足して残す初期セットの星の記述は残す
-  const keptStarter = new Set(current.nodes.filter((n) => n.origin === 'starter' && !removeIds.has(n.id)).map((n) => n.id));
-  let statements = current.statements.filter((s) => !isStarterStatement(s.id) || keptStarter.has(s.starId));
+  // 消す星の記述だけを消す。残る星（自分で記述を書き足した初期セットの星や、
+  // 自分の星に変えたメモの星）の記述は、初期セットのものでも残す
+  let statements = current.statements.filter((s) => !isStarterStatement(s.id) || !removeIds.has(s.starId));
   const relations = current.relations.filter(
     (r) => !(r.id.startsWith('starter-') || removeIds.has(r.sourceNodeId) || removeIds.has(r.targetNodeId)),
   );
