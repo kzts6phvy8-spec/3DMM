@@ -14,6 +14,7 @@ import { indexedDbRepository, type CosmosRepository } from '../storage/repositor
 import { createSampleData } from '../sampleData';
 import { mergeDataset, ownMemoStars, removeStarter } from '../data/mergeDataset';
 import { applyCorrections, type Corrections } from '../data/applyCorrections';
+import { fixKanaLinksInData } from '../lib/kanaLinks';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
 import { addDay, mergeDays } from '../lib/streak';
@@ -236,12 +237,15 @@ export const useCosmos = create<CosmosState>((set, get) => {
         const SPREAD_FLAG = 'layout-spread-v1';
         // 初期セットの壊れた記述を直した版。直し方（corrections.json）を増やしたら上げる
         const FIX_FLAG = 'corrections-v2';
+        // ひらがなの名前へのリンクが言葉の途中に付いていたのを外した版（例：植[[えら]]れて）
+        const KANA_FLAG = 'kana-links-v1';
         if (!data) {
           data = await createSampleData();
           await repo.save(data);
           await repo.setFlag(STARTER_FLAG);
           await repo.setFlag(SPREAD_FLAG);
           await repo.setFlag(FIX_FLAG);
+          await repo.setFlag(KANA_FLAG);
           set({ ...snapshotOf(data), loaded: true });
           return;
         }
@@ -267,6 +271,15 @@ export const useCosmos = create<CosmosState>((set, get) => {
             await repo.save(data);
           }
           await repo.setFlag(FIX_FLAG);
+        }
+        // 初期セットの記述で、ひらがなの名前（えら・もつ など）へのリンクが言葉の途中に付いていたものを、1回だけ外す
+        if (!(await repo.getFlag(KANA_FLAG))) {
+          const { data: fixed, changed } = fixKanaLinksInData(snapshotOf(data));
+          if (changed > 0) {
+            data = { version: 2, ...collectUnknown(fixed) };
+            await repo.save(data);
+          }
+          await repo.setFlag(KANA_FLAG);
         }
         // 以前の版を入れた後に、初期セットをまとめて削除していた人には入れない
         const removedBefore = (await repo.getFlag('starter-v1-added')) && !data.nodes.some((n) => n.origin === 'starter' && n.status === 'known');
