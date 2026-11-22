@@ -1,5 +1,5 @@
 // ひらがなだけの名前の星（えら・もつ・いとこ など）へのリンクが、ほかの言葉の一部に誤って付いたものを見分けて外す。
-// 例：「植[[えら]]れて」「機能を[[もつ]]」「深[[いとこ]]ろ」。初期セットを作るとき、文字が同じだけでリンクにしていたため（2026-11-22に発見）。
+// 例：「植[[えら]]れて」「機能を[[もつ]]」「深[[いとこ]]ろ」「向[[いて座]]る」「成[[長さ]]せ」。初期セットを作るとき、文字が同じだけでリンクにしていたため（2026-11-22に発見）。
 
 const ONLY_HIRAGANA = /^[ぁ-ゟ]+$/;
 const HIRAGANA = /[ぁ-ゟ]/;
@@ -9,7 +9,12 @@ const PARTICLES = new Set([...'のはがをにとでやもへか']);
 
 /** 前後の1文字から、言葉の途中に入ったリンクかを判断する */
 export function isBrokenKanaLink(name: string, before: string, after: string): boolean {
-  if (!ONLY_HIRAGANA.test(name)) return false;
+  if (!ONLY_HIRAGANA.test(name)) {
+    // ひらがなと漢字が混ざった名前（いて座・長さ・重さ）：直前が漢字なら、ほかの言葉の一部（向いて座る・成長させ・珍重され）
+    const hasKana = HIRAGANA.test(name);
+    if (!hasKana || !KANJI.test(before)) return false;
+    return HIRAGANA.test(name[0]) || HIRAGANA.test(name[name.length - 1]);
+  }
   if (KANJI.test(before)) return true; // 送り仮名の一部（植えら・多いとこ）
   if (before === 'を') return true; // 動詞として使われている（機能をもつ）
   if (HIRAGANA.test(after) && !PARTICLES.has(after)) return true; // 言葉が続いている（いところ・てこう）
