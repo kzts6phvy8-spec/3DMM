@@ -8,7 +8,7 @@ import { Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useCosmos } from '../store/useCosmos';
-import { neighborIds, secondRingIds } from '../lib/neighbors';
+import { neighborIds } from '../lib/neighbors';
 import { categoryColor, starRadius } from '../lib/util';
 import type { OverlayClass } from '../lib/compare';
 import { useOverlayMap } from './useOverlayMap';
@@ -99,11 +99,8 @@ export function StarField({ connected }: { connected: Set<string> }) {
     const arr = attr.array as Float32Array;
     if (!selectedId || overlay) arr.set(base);
     else {
-      // 1歩目は明るく、2歩目（その先の星）は少し弱く光らせる
-      const data = { statements, relations, nodes };
-      const near = neighborIds(selectedId, data);
-      const far = secondRingIds(selectedId, data, near);
-      nodes.forEach((n, i) => (arr[i] = near.has(n.id) ? 1 : far.has(n.id) ? 0.45 : 0.07));
+      const near = neighborIds(selectedId, { statements, relations, nodes });
+      nodes.forEach((n, i) => (arr[i] = near.has(n.id) ? 1 : 0.07));
     }
     attr.needsUpdate = true;
   }, [geometry, base, selectedId, statements, relations, nodes, overlay]);

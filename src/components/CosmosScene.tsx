@@ -11,7 +11,7 @@ import { sceneApi } from '../lib/sceneApi';
 import { labelPool, labelSlots, labelWidth } from '../lib/labelRegistry';
 import { displayName, mentionEdgesFor, type MentionEdge } from '../lib/knowledge';
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
-import { neighborIds, secondRingIds } from '../lib/neighbors';
+import { neighborIds } from '../lib/neighbors';
 
 function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
   const geometry = useMemo(() => {
@@ -62,19 +62,6 @@ function RelationLines() {
   // 線の一覧は、データが変わったときだけ作り直す（星を選ぶたびに3万本以上の線を作り直さないように）
   const factEdges = useMemo(() => mentions.filter((m) => m.kind === 'fact'), [mentions]);
   const opinionEdges = useMemo(() => [...mentions.filter((m) => m.kind === 'opinion'), ...seedEdges], [mentions, seedEdges]);
-  // 星を開いている間：1歩目の星から2歩目の星への線（薄く見せて、つながりの先が分かるようにする）
-  const ringEdges = useMemo<MentionEdge[]>(() => {
-    if (!focusMode || !selectedId) return [];
-    const data = { statements, relations, nodes };
-    const first = neighborIds(selectedId, data);
-    const second = secondRingIds(selectedId, data, first);
-    const crosses = (a: string, b: string) => (first.has(a) && a !== selectedId && second.has(b)) || (first.has(b) && b !== selectedId && second.has(a));
-    return [
-      ...mentions.filter((m) => crosses(m.a, m.b)),
-      ...seedEdges.filter((m) => crosses(m.a, m.b)),
-      ...relations.filter((r) => crosses(r.sourceNodeId, r.targetNodeId)).map((r) => ({ id: `r:${r.id}`, a: r.sourceNodeId, b: r.targetNodeId, kind: 'fact' as const })),
-    ];
-  }, [focusMode, selectedId, statements, relations, nodes, mentions, seedEdges]);
 
   return (
     <>
@@ -82,7 +69,6 @@ function RelationLines() {
       {/* 星を開いている間は、ほかの星どうしの線を消して、開いた星の線だけを見せる */}
       {!focusMode && <MentionSegments edges={factEdges} byId={byId} dashed={false} dim={!!selectedId} />}
       {!focusMode && <MentionSegments edges={opinionEdges} byId={byId} dashed dim={!!selectedId} />}
-      {focusMode && ringEdges.length > 0 && <MentionSegments edges={ringEdges} byId={byId} dashed={false} dim={false} />}
       {/* 選んだ星の言及のつながりだけ、太く明るく描く */}
       {selectedId &&
         mentions
@@ -251,25 +237,18 @@ function LabelProjector() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedId, statements, relations, seedCount],
   );
-  // 2歩目の星（名前は、場所に余裕があるときだけ少し薄く出す）
-  const far = useMemo(
-    () => secondRingIds(selectedId, { statements, relations, nodes: useCosmos.getState().nodes }, near),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [near],
-  );
 
 
   const controls = useThree((st) => st.controls) as OrbitControlsImpl | null;
   // 前のコマと同じ見え方なら、ラベルの計算を省く（星が1万個あっても、止まっているときは軽く）
-  const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown, far: null as unknown }), []);
+  const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown }), []);
   useFrame(({ camera, size }) => {
     const { nodes, labelDensity, connectFromId, mode } = useCosmos.getState();
     const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}|${connectFromId}|${mode}`;
-    if (key === last.key && nodes === last.nodes && near === last.near && far === last.far) return;
+    if (key === last.key && nodes === last.nodes && near === last.near) return;
     last.key = key;
     last.nodes = nodes;
     last.near = near;
-    last.far = far;
     // 今見ている距離（注視点までの距離）を基準に、どこまでの名前を出すかを決める
     const d0 = controls ? camera.position.distanceTo(controls.target) : 40;
     // 名前の表示量の設定（少なめ／普通／多め）
@@ -284,7 +263,6 @@ function LabelProjector() {
       // 遠くからは重要な星の名前だけ見せ、近づくほど多くの名前が見えるようにする
       let opacity: number;
       if (near.has(n.id)) opacity = 1;
-      else if (selectedId && mode === 'view' && far.has(n.id)) opacity = 0.6;
       // 星を選んでいる間は、つながっていない星の名前を出さない（つながりを目立たせるため）
       else if (selectedId && mode === 'view') continue;
       else if (unknown) opacity = Math.max(0, Math.min(0.8, (d0 * 0.45 - dist) / (d0 * 0.1)));
@@ -308,7 +286,7 @@ function LabelProjector() {
         w: labelWidth(text),
         opacity,
         // 選んだ星の周り → 重要な星 → 手前の星 の順に場所を取る
-        priority: (n.id === selectedId ? 2000 : near.has(n.id) ? 1000 : far.has(n.id) ? 500 : 0) + (unknown ? 0 : n.importance * 20) - dist,
+        priority: (n.id === selectedId ? 2000 : near.has(n.id) ? 1000 : 0) + (unknown ? 0 : n.importance * 20) - dist,
       });
     }
     // 重なるラベルは、優先度の低いほうを隠す
