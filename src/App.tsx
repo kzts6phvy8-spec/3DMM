@@ -1,3 +1,4 @@
+import { track } from './lib/analytics';
 import { useEffect, useState } from 'react';
 import { useCosmos } from './store/useCosmos';
 import { CosmosScene } from './components/CosmosScene';
@@ -36,6 +37,7 @@ export default function App() {
 
   useEffect(() => {
     useCosmos.getState().init();
+    track('app_opened');
   }, []);
 
   // 宇宙を読み込んだあとで、同期を始める（前にログインしていれば、そのまま同期する）

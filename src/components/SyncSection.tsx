@@ -94,7 +94,11 @@ export function SyncSection() {
       </dl>
       {plan === 'free' && (
         <>
-          <p className="muted small">有料プランでは、AIで調べるが月300回まで（無料は月20回）になり、端末の同期も使えます。お支払いはStripe（カード決済のサービス）の画面で行います。いつでも解約できます。</p>
+          <p className="muted small">有料プランでは、AIで調べるが月300回まで（無料は月20回）になり、端末の同期も使えます。お支払いはStripe（カード決済のサービス）の画面で行います。いつでも解約できます。月額300円・年額3,000円。</p>
+          <p className="muted small legal-links">
+            <a href="legal/terms.html" target="_blank" rel="noopener">利用規約</a>
+            <a href="legal/tokushoho.html" target="_blank" rel="noopener">特定商取引法に基づく表記</a>
+          </p>
           <div className="more-actions">
             <button className="primary" disabled={busy} onClick={() => void run(() => startCheckout('month'))}>有料プランにする（月額）</button>
             <button disabled={busy} onClick={() => void run(() => startCheckout('year'))}>有料プランにする（年額）</button>

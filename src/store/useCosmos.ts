@@ -22,6 +22,7 @@ import { dateKey } from '../lib/day';
 import type { CosmosCard } from '../lib/compare';
 import { displayName, linkToken, parseLinkIds } from '../lib/knowledge';
 import { scheduleWarmup } from '../lib/warmup';
+import { track } from '../lib/analytics';
 import type { AiSearchResult } from '../ai/search';
 import type { ViewBasis } from '../lib/sceneApi';
 
@@ -312,6 +313,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
     },
 
     recordView(id) {
+      track('star_opened');
       const engagement = addView(get().engagement, id);
       set({ engagement });
       repo.saveEngagement(engagement).catch((e: unknown) => {

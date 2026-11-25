@@ -6,6 +6,7 @@ import { useCosmos } from '../store/useCosmos';
 import { aiQuota, aiSearch, searchEntryPoints, type AiQuota, type AiSearchOutcome } from '../ai/search';
 import { spawnPosition, viewBasis } from '../lib/sceneApi';
 import { openStar } from './Panels';
+import { track } from '../lib/analytics';
 
 // 今月の回数（どのボタンからも同じものを見る）。アプリを開いて最初に1回だけ読み、調べるたびに更新する
 let quotaNow: AiQuota | null = null;
@@ -44,6 +45,7 @@ export function AiSearchButton({ query, targetId, primary }: { query: string; ta
     const outcome = await aiSearch(query).catch((): AiSearchOutcome => ({ ok: false, code: 'network', message: 'AIにつながりませんでした。' }));
     setLoading(false);
     if (outcome.quota) setQuota(outcome.quota);
+    track(outcome.ok ? 'ai_search_done' : 'ai_search_failed', outcome.ok ? { from: targetId ? 'star' : 'search' } : { code: outcome.code });
     if (!outcome.ok) {
       setMessage({ text: outcome.message, error: true });
       return;

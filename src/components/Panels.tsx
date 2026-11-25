@@ -332,6 +332,13 @@ export function MorePanel() {
         <dt>出典</dt><dd>{sources.length}件</dd>
         <dt>意味のつながり</dt><dd>{relations.length}本</dd>
       </dl>
+
+      <h3>このアプリについて</h3>
+      <p className="muted small legal-links">
+        <a href="legal/terms.html" target="_blank" rel="noopener">利用規約</a>
+        <a href="legal/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>
+        <a href="legal/tokushoho.html" target="_blank" rel="noopener">特定商取引法に基づく表記</a>
+      </p>
     </PanelFrame>
   );
 }

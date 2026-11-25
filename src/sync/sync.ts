@@ -3,6 +3,7 @@
 // - 預ける場所：Supabase の表 cosmos_sync（1人1行。宇宙のデータ全体を圧縮して保存）
 // - 食い違ったとき：片方だけ変わっていれば自動でそろえる。両方変わっていたら、どちらを残すか利用者に聞く
 // 画面（SyncSection・SyncConflict）とは、このファイルの useSync と関数だけでつながる。
+import { identify, resetIdentity, track } from '../lib/analytics';
 import { create } from 'zustand';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { useCosmos } from '../store/useCosmos';
@@ -183,6 +184,7 @@ async function afterLogin(s: Session | null) {
   try {
     const plan = await loadPlan();
     useSync.setState({ plan });
+    identify(s.user.id, { plan: plan ?? 'free' });
     if (plan === 'paid') await syncNow();
   } catch (e) {
     useSync.setState({ status: 'error', message: `プランを確かめられませんでした（${errorText(e)}）` });
@@ -215,6 +217,7 @@ async function callBilling(body: Record<string, string>): Promise<{ url?: string
 
 /** 支払い画面（Stripe）へ移る。うまくいかなければ理由を返す */
 export async function startCheckout(interval: 'month' | 'year'): Promise<string | null> {
+  track('checkout_started', { interval });
   if (!session) return 'ログインしてください';
   const r = await callBilling({ action: 'checkout', interval });
   if (r.url) {
@@ -251,6 +254,7 @@ async function afterBillingReturn() {
   for (let i = 0; i < 10; i++) {
     try {
       if ((await loadPlan()) === 'paid') {
+        track('plan_paid');
         useSync.setState({ message: '有料プランになりました。ありがとうございます。' });
         await refreshPlan();
         useSync.setState({ message: '有料プランになりました。ありがとうございます。' });
@@ -281,6 +285,7 @@ export async function signIn(email: string, password: string): Promise<string | 
     const sb = await client();
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) return authMessage(error);
+    track('logged_in');
     await listenAuth();
     await afterLogin(data.session);
     return null;
@@ -295,6 +300,7 @@ export async function signUp(email: string, password: string): Promise<{ error: 
     const sb = await client();
     const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
     if (error) return { error: authMessage(error), needConfirm: false };
+    track('signed_up');
     if (data.session) {
       await listenAuth();
       await afterLogin(data.session);
@@ -309,6 +315,8 @@ export async function signUp(email: string, password: string): Promise<{ error: 
 export async function signOut() {
   const sb = await client();
   await sb.auth.signOut();
+  track('logged_out');
+  resetIdentity();
   await afterLogin(null);
 }
 
