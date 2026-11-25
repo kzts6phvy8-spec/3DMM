@@ -109,6 +109,9 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
       <div className="filter-row">
         {(Object.keys(STAR_KINDS) as StarKind[]).map((k) => chip(k, kind, setKind, STAR_KINDS[k]))}
       </div>
+      {/* 言葉を入れたら、結果があってもなくても、いちばん上に「AIで調べる」を出す（2026-11-25、利用者が決定）。
+          検索は言葉の途中にも当たるので（例：「ぴえん」→「サピエンス」）、結果があっても調べたい言葉の星がないことが多いため */}
+      {query.trim() && <AiSearchButton key={query.trim()} query={query.trim()} targetId={null} primary />}
       <ul className="panel-list">
         {results.map(({ node, snippet }) => (
           <li key={node.id}>
@@ -131,7 +134,6 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
           <p className="muted">見つかりませんでした。</p>
           {query.trim() && (
             <>
-              <AiSearchButton key={query.trim()} query={query.trim()} targetId={null} primary />
               <button onClick={() => onCreate(query.trim())}>「{query.trim()}」を自分で書いて追加</button>
             </>
           )}
