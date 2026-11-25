@@ -420,3 +420,5 @@ button.danger { color: var(--danger); }
 .small-btn.wrap { max-width: 100%; white-space: normal; text-align: left; padding-top: 6px; padding-bottom: 6px; }
 .legal-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .legal-links a { color: #8fb8ff; padding: 6px 0; }
+.welcome-card { max-width: 360px; }
+.welcome-step { margin: 0; }
