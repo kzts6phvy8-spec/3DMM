@@ -422,3 +422,25 @@ button.danger { color: var(--danger); }
 .legal-links a { color: #8fb8ff; padding: 6px 0; }
 .welcome-card { max-width: 360px; }
 .welcome-step { margin: 0; }
+
+/* 初めての人向けの案内（全画面。見本：Claude Design「Knowledge Cosmos 画面の見本」A-1〜A-3） */
+.welcome { position: fixed; inset: 0; z-index: 400; background: #070A14; color: #EEF1FA; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 28px calc(40px + env(safe-area-inset-bottom)); box-sizing: border-box; overflow-y: auto; }
+.welcome-visual { flex: 1; min-height: 220px; display: flex; align-items: center; justify-content: center; padding-bottom: 28px; }
+.welcome-art { width: 100%; max-width: 390px; height: auto; max-height: 100%; }
+.welcome-body { display: flex; flex-direction: column; gap: 18px; max-width: 480px; width: 100%; margin: 0 auto; }
+.welcome-step { margin: 0; font-size: 13px; color: #9AA3C7; letter-spacing: 0.08em; }
+.welcome-title { margin: 0; font-size: 30px; line-height: 1.35; font-weight: 700; }
+.welcome-text { margin: 0; font-size: 16px; line-height: 1.8; color: #C9CFEA; }
+.welcome-actions { display: flex; gap: 12px; margin-top: 8px; }
+.welcome-primary { flex: 1; height: 52px; border-radius: 26px; border: none; background: #9CC2FF; color: #071022; font-size: 16px; font-weight: 700; font-family: inherit; }
+.welcome-secondary { height: 52px; padding: 0 20px; border-radius: 26px; border: 1px solid #232A45; background: transparent; color: #9AA3C7; font-size: 15px; font-family: inherit; }
+.welcome-howto { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; align-self: flex-end; }
+.welcome-howto li { display: flex; gap: 16px; align-items: center; padding: 18px; border-radius: 18px; background: #111629; font-size: 15px; line-height: 1.6; }
+.welcome-howto-icon { flex: none; width: 40px; height: 40px; }
+.welcome-howto-icon svg { width: 40px; height: 40px; }
+.welcome-example { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 20px; background: #111629; box-sizing: border-box; align-self: flex-end; }
+.welcome-example-box { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px; border-radius: 24px; background: #070A14; border: 1px solid #232A45; font-size: 15px; }
+.welcome-example-box svg { width: 18px; height: 18px; }
+.welcome-example-label { margin: 4px 4px 0; font-size: 13px; color: #9AA3C7; }
+.welcome-example-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px; }
+.welcome-example-chips span { padding: 6px 12px; border-radius: 14px; border: 1px solid #5C4A1E; color: #FFD27A; font-size: 13px; }
