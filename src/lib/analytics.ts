@@ -5,7 +5,7 @@
 import type { PostHog } from 'posthog-js';
 
 export const POSTHOG_KEY: string = '';
-export const POSTHOG_HOST: string = 'https://us.i.posthog.com';
+export const POSTHOG_HOST: string = 'https://eu.i.posthog.com';
 
 let ready: Promise<PostHog | null> | null = null;
 
