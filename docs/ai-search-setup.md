@@ -45,6 +45,12 @@ AIの秘密の鍵（APIキー）は、アプリの中には入れません。Sup
 5. 「Deploy function」を押す
 6. 置いたあと「Settings」で「Verify JWT with legacy secret」をオフにして「Save changes」を押す（ログインの確認は処理の中で行うため）
 
+## 3.5 回数の表を作る（無料は月20回・有料は月300回）
+
+1. Supabase の「SQL Editor」→「＋」（New query）
+2. `supabase/ai_quota.sql` の中身を全部貼り付けて「Run」を押す
+   - コピーしやすいURL：https://raw.githubusercontent.com/kzts6phvy8-spec/3DMM/main/supabase/ai_quota.sql
+
 ## 4. 確かめる
 
 1. アプリで、有料プランのアカウントでログインしておく（「その他」→「端末の同期」）

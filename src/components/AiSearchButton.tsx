@@ -1,22 +1,49 @@
 // 「🔭 AIで調べる」：言葉をAIにWeb検索してもらい、その星と、そこから枝分かれする言葉の星をつなぐ。
 // 枝の言葉がすでに宇宙にあればその星につなぎ、なければ「まだ知らない星」として置く。
 // 枝の星を開いて、もう一度押すと、そこからまた枝が伸びる。
-import { useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useCosmos } from '../store/useCosmos';
-import { aiSearch, searchEntryPoints } from '../ai/search';
+import { aiQuota, aiSearch, searchEntryPoints, type AiQuota, type AiSearchOutcome } from '../ai/search';
 import { spawnPosition, viewBasis } from '../lib/sceneApi';
 import { openStar } from './Panels';
+
+// 今月の回数（どのボタンからも同じものを見る）。アプリを開いて最初に1回だけ読み、調べるたびに更新する
+let quotaNow: AiQuota | null = null;
+let quotaLoaded = false;
+const listeners = new Set<() => void>();
+function setQuota(q: AiQuota | null) {
+  quotaNow = q;
+  listeners.forEach((l) => l());
+}
+function useQuota() {
+  const q = useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => quotaNow,
+  );
+  useEffect(() => {
+    if (quotaLoaded) return;
+    quotaLoaded = true;
+    void aiQuota().then((x) => x && setQuota(x));
+  }, []);
+  return q;
+}
 
 export function AiSearchButton({ query, targetId, primary }: { query: string; targetId: string | null; primary?: boolean }) {
   const applyAiSearch = useCosmos((s) => s.applyAiSearch);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const quota = useQuota();
+  const left = quota ? Math.max(0, quota.limit - quota.used) : null;
 
   const run = async () => {
     setLoading(true);
     setMessage(null);
-    const outcome = await aiSearch(query).catch(() => ({ ok: false as const, code: 'network', message: 'AIにつながりませんでした。' }));
+    const outcome = await aiSearch(query).catch((): AiSearchOutcome => ({ ok: false, code: 'network', message: 'AIにつながりませんでした。' }));
     setLoading(false);
+    if (outcome.quota) setQuota(outcome.quota);
     if (!outcome.ok) {
       setMessage({ text: outcome.message, error: true });
       return;
@@ -35,6 +62,7 @@ export function AiSearchButton({ query, targetId, primary }: { query: string; ta
       <button className={primary ? 'primary' : 'small-btn'} disabled={loading} onClick={run}>
         {loading ? '🔭 調べています…（30秒ほどかかります）' : `🔭「${query.length > 14 ? query.slice(0, 14) + '…' : query}」をAIで調べる`}
       </button>
+      {left !== null && <p className="muted small">今月あと{left}回（{quota!.limit === 300 ? '有料プラン' : '無料'}：月{quota!.limit}回まで）</p>}
       {message && <p className={`more-message${message.error ? ' is-error' : ''}`}>{message.text}</p>}
     </div>
   );

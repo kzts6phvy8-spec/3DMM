@@ -1,4 +1,4 @@
-// 「その他」の中の「端末の同期（有料プラン）」。ログイン・プランの確認・今すぐ同期・ログアウト。
+// 「その他」の中の「アカウントと同期」（ログインはAIで調べるにも使う。同期は有料プラン）。ログイン・プランの確認・今すぐ同期・ログアウト。
 import { useState } from 'react';
 import { openBillingPortal, refreshPlan, signIn, signOut, signUp, startCheckout, syncNow, useSync } from '../sync/sync';
 import { syncConfigured } from '../sync/config';
@@ -41,7 +41,7 @@ export function SyncSection() {
     const ok = form.email.includes('@') && form.password.length >= 6;
     return (
       <>
-        <h3>端末の同期（有料プラン）</h3>
+        <h3>アカウントと同期</h3>
         <p className="muted small">ログインすると、iPhoneとPCなど、ほかの端末と同じ宇宙を使えます。</p>
         <form
           className="sync-form"
@@ -83,7 +83,7 @@ export function SyncSection() {
   // ---- ログインしている ----
   return (
     <>
-      <h3>端末の同期（有料プラン）</h3>
+      <h3>アカウントと同期</h3>
       <dl className="meta">
         <dt>ログイン中</dt><dd>{email}</dd>
         <dt>プラン</dt><dd>{plan === 'paid' ? '有料' : plan === 'free' ? '無料' : '確認中…'}</dd>
@@ -94,7 +94,7 @@ export function SyncSection() {
       </dl>
       {plan === 'free' && (
         <>
-          <p className="muted small">端末の同期は有料プランの機能です。お支払いはStripe（カード決済のサービス）の画面で行います。いつでも解約できます。</p>
+          <p className="muted small">有料プランでは、AIで調べるが月300回まで（無料は月20回）になり、端末の同期も使えます。お支払いはStripe（カード決済のサービス）の画面で行います。いつでも解約できます。</p>
           <div className="more-actions">
             <button className="primary" disabled={busy} onClick={() => void run(() => startCheckout('month'))}>有料プランにする（月額）</button>
             <button disabled={busy} onClick={() => void run(() => startCheckout('year'))}>有料プランにする（年額）</button>

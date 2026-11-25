@@ -20,7 +20,35 @@ export interface AiSearchResult {
   sources: { url: string; title: string }[];
 }
 
-export type AiSearchOutcome = { ok: true; result: AiSearchResult; searchEntryPoint: string | null } | { ok: false; code: string; message: string };
+/** 今月のAIで調べる回数（無料は月20回・有料は月300回） */
+export interface AiQuota {
+  used: number;
+  limit: number;
+}
+
+export type AiSearchOutcome =
+  | { ok: true; result: AiSearchResult; searchEntryPoint: string | null; quota: AiQuota | null }
+  | { ok: false; code: string; message: string; quota?: AiQuota | null };
+
+const toQuota = (q: unknown): AiQuota | null => {
+  const v = q as { used?: unknown; limit?: unknown } | null;
+  return v && typeof v.used === 'number' && typeof v.limit === 'number' ? { used: v.used, limit: v.limit } : null;
+};
+
+/** 今月の回数を読む。ログインしていない・準備ができていないときは null */
+export async function aiQuota(): Promise<AiQuota | null> {
+  try {
+    const { client } = await import('../sync/sync');
+    const sb = await client();
+    const { data: s } = await sb.auth.getSession();
+    if (!s.session) return null;
+    const { data, error } = await sb.rpc('ai_quota');
+    if (error || !(data as { ok?: boolean })?.ok) return null;
+    return toQuota(data);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Google検索の候補（Gemini を使ったとき）。Googleの決まりで、検索で確かめた結果には表示が必要とされているので、
@@ -68,7 +96,7 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
   const { client } = await import('../sync/sync');
   const sb = await client();
   const { data: s } = await sb.auth.getSession();
-  if (!s.session) return { ok: false, code: 'login', message: 'AIで調べるには、ログインが必要です（「その他」→「同期」）。' };
+  if (!s.session) return { ok: false, code: 'login', message: 'AIで調べるには、ログインが必要です（無料・月20回まで）。「その他」→「アカウントと同期」から登録・ログインできます。' };
   // 返事が来ないまま「調べています」で止まらないように、2分で打ち切る
   const timeout = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 120_000));
   const answer = await Promise.race([sb.functions.invoke(AI_SEARCH_FUNCTION, { body: { query } }), timeout]);
@@ -76,7 +104,7 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
   const { data, error } = answer;
   if (error) {
     // サーバーが返した理由（日本語）を読み出す
-    let body: { error?: string; code?: string; detail?: string } | null = null;
+    let body: { error?: string; code?: string; detail?: string; quota?: unknown } | null = null;
     try {
       const ctx = (error as { context?: Response }).context;
       if (ctx && typeof ctx.json === 'function') body = await ctx.json();
@@ -84,16 +112,31 @@ export async function aiSearch(query: string): Promise<AiSearchOutcome> {
       /* 読めなければ下の一般的な文にする */
     }
     const detail = typeof body?.detail === 'string' && body.detail ? `（AIの会社からの理由：${body.detail.slice(0, 400)}）` : '';
-    return { ok: false, code: body?.code ?? 'network', message: (body?.error ?? 'AIにつながりませんでした。通信を確かめて、もう一度試してください。') + detail };
+    return {
+      ok: false,
+      code: body?.code ?? 'network',
+      message: (body?.error ?? 'AIにつながりませんでした。通信を確かめて、もう一度試してください。') + detail,
+      quota: toQuota(body?.quota),
+    };
   }
   // 関数は通信をつないでおくため、失敗も「成功（200）」の形で返し、本文の error で伝える
   const failed = data as { error?: unknown; code?: unknown; detail?: unknown } | null;
   if (failed && typeof failed.error === 'string') {
     const detail = typeof failed.detail === 'string' && failed.detail ? `（AIの会社からの理由：${failed.detail.slice(0, 400)}）` : '';
-    return { ok: false, code: typeof failed.code === 'string' ? failed.code : 'network', message: failed.error + detail };
+    return {
+      ok: false,
+      code: typeof failed.code === 'string' ? failed.code : 'network',
+      message: failed.error + detail,
+      quota: toQuota((failed as { quota?: unknown }).quota),
+    };
   }
   const result = normalizeResult((data as { result?: unknown })?.result, query);
   if (!result) return { ok: false, code: 'empty', message: 'AIの結果を読み取れませんでした。もう一度試してください。' };
   const entry = (data as { searchEntryPoint?: unknown })?.searchEntryPoint;
-  return { ok: true, result, searchEntryPoint: typeof entry === 'string' && entry.length < 20000 ? entry : null };
+  return {
+    ok: true,
+    result,
+    searchEntryPoint: typeof entry === 'string' && entry.length < 20000 ? entry : null,
+    quota: toQuota((data as { quota?: unknown })?.quota),
+  };
 }
