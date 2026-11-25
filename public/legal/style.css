@@ -1,0 +1,11 @@
+body { margin: 0; background: #0b0e1a; color: #e6e9f5; font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; line-height: 1.8; }
+main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.4rem; margin: 0 0 4px; }
+h2 { font-size: 1.05rem; margin: 28px 0 6px; }
+p, li, td, th { font-size: 0.95rem; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid #2a3150; }
+th { width: 34%; color: #aab3d6; font-weight: 600; }
+a { color: #8fb8ff; }
+.muted { color: #8b93b8; font-size: 0.85rem; }
+.todo { background: #4a3a10; color: #ffd98a; padding: 0 4px; border-radius: 4px; }
