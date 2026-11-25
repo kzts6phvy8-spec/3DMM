@@ -1,6 +1,6 @@
 // AIで調べる：言葉を受け取り、AIにWebを検索させて「概要・記述（出典付き）・枝分かれする言葉」を返す。
 // Supabase の Edge Functions（サーバー側で動く小さな処理）で動かす。AIの秘密の鍵は Supabase の Secrets にだけ置き、
-// アプリには入れない。使えるのは、ログインしている有料プランの本人だけ。
+// アプリには入れない。使えるのは、ログインしている本人だけ。回数は無料が月20回・有料が月300回（supabase/ai_quota.sql）。
 // 使うAIは、預けた鍵で決まる（交換できるようにするため）：
 //   GEMINI_API_KEY があれば Google の Gemini（Google検索で確かめる）。モデルは GEMINI_MODEL で変えられる
 //   なければ ANTHROPIC_API_KEY で Claude（Web検索で確かめる）
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'POSTで呼んでください' }, 405);
 
-  // ---- 本人確認と、有料プランかどうか ----
+  // ---- 本人確認と、今月の回数 ----
   const auth = req.headers.get('Authorization') ?? '';
   // 接続先と公開してよい鍵は、Supabase が自動で用意する。なければアプリと同じもの（公開してよい鍵）を使う
   const url = Deno.env.get('SUPABASE_URL') ?? 'https://qhaxsvljyohdohromjch.supabase.co';
@@ -101,8 +101,24 @@ Deno.serve(async (req) => {
   });
   const { data: userData, error: userError } = await sb.auth.getUser();
   if (userError || !userData.user) return json({ error: 'ログインしてください', code: 'login' }, 401);
-  const { data: profile } = await sb.from('profiles').select('plan').eq('user_id', userData.user.id).maybeSingle();
-  if (profile?.plan !== 'paid') return json({ error: '有料プランの機能です', code: 'plan' }, 403);
+  // 今月の回数（無料は月20回・有料は月300回。数えるのは supabase/ai_quota.sql の関数）
+  const { data: quota, error: quotaError } = await sb.rpc('ai_quota');
+  if (quotaError || !quota?.ok) {
+    console.error('ai_quota', quotaError?.message);
+    return json({ error: '回数を数える準備ができていません（管理者が ai_quota.sql を実行する必要があります）', code: 'setup' }, 503);
+  }
+  if (quota.used >= quota.limit) {
+    return json(
+      {
+        error: quota.paid
+          ? `今月のAIで調べる回数（${quota.limit}回）を使い切りました。来月1日に戻ります。`
+          : `無料で調べられるのは月${quota.limit}回までです。有料プランにすると月300回まで調べられます（「その他」→「アカウントと同期」）。`,
+        code: 'quota',
+        quota,
+      },
+      429,
+    );
+  }
 
   const geminiKey = Deno.env.get('GEMINI_API_KEY');
   const claudeKey = Deno.env.get('ANTHROPIC_API_KEY');
@@ -117,9 +133,16 @@ Deno.serve(async (req) => {
   if (!query || query.length > 100) return json({ error: '調べる言葉を1〜100文字で入れてください', code: 'input' }, 400);
 
   const started = Date.now();
-  const work = (geminiKey ? askGemini(query, geminiKey) : askClaude(query, claudeKey!)).finally(() =>
-    console.log('ai-search 所要', Math.round((Date.now() - started) / 1000), '秒'),
-  );
+  const work = (geminiKey ? askGemini(query, geminiKey) : askClaude(query, claudeKey!))
+    .then(async (r) => {
+      // 結果が出たときだけ1回と数える（AIが失敗したときは数えない）
+      if (!r.ok) return r;
+      const body = await r.json();
+      if (!body?.result) return json(body, r.status);
+      const { data: after } = await sb.rpc('ai_consume');
+      return json({ ...body, quota: after ?? null }, r.status);
+    })
+    .finally(() => console.log('ai-search 所要', Math.round((Date.now() - started) / 1000), '秒'));
   return keepAlive(work);
 });
 

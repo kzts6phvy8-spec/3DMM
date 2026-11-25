@@ -107,6 +107,7 @@ React、TypeScript、Vite、Three.js、React Three Fiber、IndexedDBを基本候
 - **意味のつながり（Relation）**：自分で結ぶ線。理由の事実／意見の区別と出典を持つ。
 - **言及のつながり**：記述のリンクから自動で計算する。保存しない。
 - **関わり方の記録**：星を開いた回数など。`src/lib/engagement.ts`。保存キー `engagement-v1`（知識のデータとは別）。バックアップにも含める。
+- **AIで調べるの回数**：無料は月20回・有料は月300回（ログイン必須。2026-11-25に利用者が決定）。表と関数は `supabase/ai_quota.sql`。
 - **同期**：Supabase に預ける（`src/sync/`、表と決まりは `supabase/schema.sql`）。有料（`profiles.plan = 'paid'`）の本人だけが読み書きできる。アプリに入れてよいのは公開してよい鍵（publishable）だけ。秘密の鍵（secret / service_role）は絶対に入れない。
 - **連続記録**：言葉クイズをやった日の一覧（つながりパズルは2026-11-19に廃止）。`src/lib/streak.ts`。保存キー `activity-v1`（知識のデータとは別）。バックアップにも含める（復元時は足し合わせる）。
 - **確認状態はない**（2026-11-13に廃止）。旧データの `manualCheck`・`checkNote` は、読み込み時とバックアップ復元時に `dropCheckFields` で取り除く。
