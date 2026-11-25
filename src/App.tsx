@@ -8,6 +8,7 @@ import { RelationForm } from './components/RelationForm';
 import { StatementForm } from './components/StatementForm';
 import { LabelLayer } from './components/LabelLayer';
 import { StreakCard } from './components/StreakCard';
+import { WelcomeCard, isFirstVisit } from './components/WelcomeCard';
 import { SyncConflictDialog } from './components/SyncConflictDialog';
 import { startSync } from './sync/sync';
 import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
@@ -34,6 +35,8 @@ export default function App() {
   const panel = useCosmos((s) => s.panel);
   const [stForm, setStForm] = useState<{ starId: string; statementId: string | null } | null>(null);
   const [has3d] = useState(webglAvailable);
+  // 初めての人には、連続記録のカードの代わりに案内を出す（開いたときに1回だけ決める）
+  const [firstVisit] = useState(isFirstVisit);
 
   useEffect(() => {
     useCosmos.getState().init();
@@ -58,7 +61,7 @@ export default function App() {
         <NodeList />
       )}
       <TopBar onAdd={() => setForm({ editId: null })} />
-      <StreakCard />
+      {firstVisit ? <WelcomeCard /> : <StreakCard />}
       <SyncConflictDialog />
       <ModeBanner />
       <BottomNav onAdd={() => setForm({ editId: null })} />
