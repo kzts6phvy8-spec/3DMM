@@ -4,7 +4,7 @@
 // 鍵（phc_ で始まる）は、記録を書き込むことしかできない「公開してよい鍵」。
 import type { PostHog } from 'posthog-js';
 
-export const POSTHOG_KEY: string = '';
+export const POSTHOG_KEY: string = 'phc_woVdDVgLqCHvLY5yqhvMypiB5BW63Q8Nq3XK7JRddMgE';
 export const POSTHOG_HOST: string = 'https://eu.i.posthog.com';
 
 let ready: Promise<PostHog | null> | null = null;
