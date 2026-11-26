@@ -46,6 +46,17 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   // 消した星は履歴に出さない
   const historyNodes = history.map((id) => byId.get(id)).filter((n): n is KnowledgeNode => !!n);
+  // 最近開いた星（宇宙・リンク・検索など、どこから開いたかを問わない）。星を開いた記録の「最後に開いた日時」の新しい順に10個。
+  // 「最近探した星」に出ている星は重ねて出さない
+  const engagement = useCosmos((s) => s.engagement);
+  const recentNodes = useMemo(() => {
+    const shown = new Set(history);
+    return Object.entries(engagement)
+      .filter(([id]) => !shown.has(id) && byId.has(id))
+      .sort((a, b) => b[1].lastViewedAt.localeCompare(a[1].lastViewedAt))
+      .slice(0, 10)
+      .map(([id]) => byId.get(id)!);
+  }, [engagement, history, byId]);
 
   const categories = useMemo(
     () => [...new Set(nodes.filter((n) => n.status === 'known' && n.category).map((n) => n.category))].sort((a, b) => a.localeCompare(b, 'ja')),
@@ -179,6 +190,26 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
                     </button>
                     <button className="icon-btn small" onClick={() => removeSearchHistory(node.id)} aria-label={`「${displayName(node)}」を履歴から消す`}>
                       ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {recentNodes.length > 0 && (
+            <section className="search-history" aria-label="最近開いた星">
+              <div className="section-head">
+                <h3>最近開いた星</h3>
+              </div>
+              <ul className="panel-list">
+                {recentNodes.map((node) => (
+                  <li key={node.id}>
+                    <button className="panel-item" onClick={() => openStar(node.id)}>
+                      <span className="dot" style={{ background: node.status === 'unknown' ? '#8f99c2' : categoryColor(node.category) }} />
+                      <span className="panel-item-main">
+                        <span className="panel-item-title">{displayName(node)}</span>
+                      </span>
+                      <span className="muted small">{node.category}</span>
                     </button>
                   </li>
                 ))}
