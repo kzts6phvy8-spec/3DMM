@@ -12,6 +12,7 @@ import { neighborIds } from '../lib/neighbors';
 import { categoryColor, starRadius } from '../lib/util';
 import type { OverlayClass } from '../lib/compare';
 import { useOverlayMap } from './useOverlayMap';
+import { hiddenStarIds } from '../lib/ownStars';
 
 /** 友達と重ねるときの色 */
 export const OVERLAY_COLORS: Record<OverlayClass, string> = { both: '#ffd36e', mine: '#7fb8ff', friend: '#ff8fc8' };
@@ -61,6 +62,10 @@ export function StarField({ connected }: { connected: Set<string> }) {
   const nodes = useCosmos((s) => s.nodes);
   const overlay = useOverlayMap();
   const { size, camera, gl } = useThree();
+  // 「自分の星だけ表示」のときに隠す星（表示していないときは null）
+  const ownOnly = useCosmos((s) => s.ownOnly);
+  const openId = useCosmos((s) => s.selectedId);
+  const hidden = useMemo(() => hiddenStarIds(nodes, ownOnly, openId), [nodes, ownOnly, openId]);
 
   const geometry = useMemo(() => {
     const n = nodes.length;
@@ -78,6 +83,10 @@ export function StarField({ connected }: { connected: Set<string> }) {
       sz[i] = nodeRadius(node.status, node.importance) * (cls ? 1.3 : 1);
       // まだ知らない星・つながりのない星は淡く光らせる。重ねて表示しているときは、関係のない星を暗くする
       al[i] = overlay ? (cls ? 1 : 0.12) : unknown ? 0.4 : connected.has(node.id) ? 0.85 : 0.55;
+      if (hidden?.has(node.id)) {
+        sz[i] = 0;
+        al[i] = 0;
+      }
     });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -86,7 +95,7 @@ export function StarField({ connected }: { connected: Set<string> }) {
     g.setAttribute('alpha', new THREE.BufferAttribute(al, 1));
     g.computeBoundingSphere();
     return g;
-  }, [nodes, connected, overlay]);
+  }, [nodes, connected, overlay, hidden]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   // 星を選んでいる間は、つながっている星だけを明るくし、ほかを暗くする（元の明るさは geometry に残す）
@@ -100,10 +109,10 @@ export function StarField({ connected }: { connected: Set<string> }) {
     if (!selectedId || overlay) arr.set(base);
     else {
       const near = neighborIds(selectedId, { statements, relations, nodes });
-      nodes.forEach((n, i) => (arr[i] = near.has(n.id) ? 1 : 0.07));
+      nodes.forEach((n, i) => (arr[i] = hidden?.has(n.id) ? 0 : near.has(n.id) ? 1 : 0.07));
     }
     attr.needsUpdate = true;
-  }, [geometry, base, selectedId, statements, relations, nodes, overlay]);
+  }, [geometry, base, selectedId, statements, relations, nodes, overlay, hidden]);
 
   const material = useMemo(
     () =>
@@ -196,7 +205,10 @@ export function StarPicker() {
       // 星を開いている間は、光っている（つながっている）星を優先し、名前のあたりを押しても選べるようにする
       const st = useCosmos.getState();
       const lit = st.mode === 'view' && st.selectedId && !st.overlay ? neighborIds(st.selectedId, st) : null;
+      // 「自分の星だけ表示」で隠れている星は選べない
+      const hidden = hiddenStarIds(st.nodes, st.ownOnly, st.selectedId);
       for (const n of st.nodes) {
+        if (hidden?.has(n.id)) continue;
         v.set(n.position[0], n.position[1], n.position[2]);
         const dist = camera.position.distanceTo(v);
         v.project(camera);

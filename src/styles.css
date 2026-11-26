@@ -450,3 +450,13 @@ button.danger { color: var(--danger); }
 .welcome-example-label { margin: 4px 4px 0; font-size: 13px; color: #9AA3C7; }
 .welcome-example-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px; }
 .welcome-example-chips span { padding: 6px 12px; border-radius: 14px; border: 1px solid #5C4A1E; color: #FFD27A; font-size: 13px; }
+
+/* ---- 自分の星だけ表示（2026-11-26） ---- */
+.own-only-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 12px; }
+.own-only-notice {
+  position: absolute; z-index: 40; left: 50%; transform: translateX(-50%);
+  top: calc(var(--safe-top) + 72px);
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 999px;
+  font-size: 13px; white-space: nowrap; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}

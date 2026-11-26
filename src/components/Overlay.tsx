@@ -6,6 +6,21 @@ import { searchNodes } from '../lib/search';
 import { displayName } from '../lib/knowledge';
 import { suggestConnections } from '../lib/suggest';
 import { LAYOUT } from '../config/layout';
+import { isOwnStar } from '../lib/ownStars';
+
+/** 「自分の星だけ表示」のあいだ、画面の上に出す知らせ（何が起きているかわかるように、すぐ解除できるように） */
+export function OwnOnlyNotice() {
+  const ownOnly = useCosmos((s) => s.ownOnly);
+  const setOwnOnly = useCosmos((s) => s.setOwnOnly);
+  const count = useCosmos((s) => (s.ownOnly ? s.nodes.filter(isOwnStar).length : 0));
+  if (!ownOnly) return null;
+  return (
+    <div className="own-only-notice" role="status">
+      <span>自分の星だけ表示中（{count}個）</span>
+      <button className="small-btn" onClick={() => setOwnOnly(false)}>すべて表示</button>
+    </div>
+  );
+}
 
 export function TopBar({ onAdd }: { onAdd: () => void }) {
   const nodeCount = useCosmos((s) => s.nodes.filter((n) => n.status === 'known').length);
