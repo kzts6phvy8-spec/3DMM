@@ -1,6 +1,6 @@
 // 星をタップしたときに画面下から出るパネル。
 // プレビュー（概要だけ）と、星のページ（記述・出典・つながりの全部）の2段階（構造の層 ③A）
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
 import { RELATION_TYPES, STAR_KINDS, type KnowledgeNode, type Statement } from '../types';
 import { RELATION_COLORS, categoryColor, formatDate } from '../lib/util';
@@ -238,6 +238,50 @@ function StatementItem({
   );
 }
 
+/**
+ * シートの上の取っ手。iPhoneのほかのアプリと同じように、下へ引くと縮み（小さい表示なら閉じる）、上へ引くと開く。押すと開く・たたむが切り替わる。
+ * 引いている間は、シートが指についてくる
+ */
+function SheetHandle({ expanded, onExpand, onCollapse, onClose }: { expanded: boolean; onExpand: () => void; onCollapse: () => void; onClose: () => void }) {
+  const drag = useRef<{ y: number; sheet: HTMLElement | null } | null>(null);
+  const move = (dy: number) => {
+    const sheet = drag.current?.sheet;
+    if (sheet) sheet.style.transform = dy > 0 ? `translateY(${dy}px)` : `translateY(${Math.max(dy, -24)}px)`;
+  };
+  const end = (dy: number | null) => {
+    const sheet = drag.current?.sheet;
+    drag.current = null;
+    if (sheet) sheet.style.transform = '';
+    if (dy === null) return;
+    if (dy > 40) (expanded ? onCollapse : onClose)();
+    else if (dy < -40) { if (!expanded) onExpand(); }
+    else if (Math.abs(dy) < 8) (expanded ? onCollapse : onExpand)();
+  };
+  return (
+    <div
+      className="sheet-handle-area"
+      role="button"
+      tabIndex={0}
+      aria-label={expanded ? 'たたむ（下へ引く）' : '開く（上へ引く）'}
+      onPointerDown={(e) => {
+        drag.current = { y: e.clientY, sheet: e.currentTarget.closest('.sheet') };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => drag.current && move(e.clientY - drag.current.y)}
+      onPointerUp={(e) => drag.current && end(e.clientY - drag.current.y)}
+      onPointerCancel={() => end(null)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          (expanded ? onCollapse : onExpand)();
+        }
+      }}
+    >
+      <div className="sheet-handle" />
+    </div>
+  );
+}
+
 export function NodeSheet({
   onEdit,
   onEditStatement,
@@ -334,15 +378,20 @@ export function NodeSheet({
       )}
       <span className="dot" style={{ background: node.status === 'unknown' ? '#8f99c2' : categoryColor(node.category) }} />
       <h2>{displayName(node)}</h2>
-      <button className="icon-btn" onClick={() => select(null)} aria-label="閉じる">×</button>
+      {expanded ? (
+        <button className="icon-btn" onClick={() => setExpanded(false)} aria-label="たたむ" title="たたむ">﹀</button>
+      ) : (
+        <button className="icon-btn" onClick={() => select(null)} aria-label="閉じる">×</button>
+      )}
     </header>
   );
+  const handle = <SheetHandle expanded={expanded} onExpand={() => setExpanded(true)} onCollapse={() => setExpanded(false)} onClose={() => select(null)} />;
 
   // ---- まだ知らない星 ----
   if (node.status === 'unknown') {
     return (
       <section key={`unknown-${node.id}`} className={`sheet${expanded ? ' is-expanded' : ''}`} aria-label="まだ知らない星">
-        <div className="sheet-handle" />
+        {handle}
         {breadcrumb}
         {header}
         <NeighborChips key={`nb-${node.id}`} star={node} own={own} backlinks={backlinks} related={related} byId={byId} />
@@ -417,7 +466,7 @@ export function NodeSheet({
   if (!expanded) {
     return (
       <section key={`known-${node.id}`} className="sheet" aria-label="星の詳細">
-        <div className="sheet-handle" />
+        {handle}
         {breadcrumb}
         {header}
         {intro}
@@ -428,7 +477,7 @@ export function NodeSheet({
 
   return (
     <section key={`known-${node.id}`} className="sheet is-expanded" aria-label="星の詳細">
-      <div className="sheet-handle" />
+      {handle}
       {breadcrumb}
       {header}
       <div className="sheet-body whole">
