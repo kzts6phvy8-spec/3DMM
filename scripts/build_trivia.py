@@ -1,7 +1,7 @@
 """初期セット第7弾（クイズ・雑学向けの分野）を作る。2026-11-26、利用者が「B：クイズ・雑学向けの分野だけ足す」を選んだ。
 
 使い方：
-  python3 scripts/build_trivia.py <作業用フォルダ> src/data/trivia.json
+  python3 scripts/build_trivia.py <作業用フォルダ> src/data/trivia.json [1カテゴリの上限（既定200）]
   （作業用フォルダには scripts/fetch_trivia.py が作った members.json・articles.json と、existing-names.json・starter-specs.json がある）
 
 作るもの（第3・4弾と同じ決まり）：
@@ -11,6 +11,7 @@
   - リンク：文の中に出てくる、ほかの星の名前を [[名前]] にする（1文に最大3つ。第4弾と同じ Linker）
     ひらがなだけの名前が言葉の途中に付くリンクは、アプリの src/lib/kanaLinks.ts と同じ決まりで、ここでは作らない
   - 既にある星と同じ名前の項目は作らない。記事がない項目・曖昧さ回避・一覧の記事は外す
+  - 分野が偏らないように、1つのカテゴリから選ぶのは最大 CAP 個（記事の冒頭が長いものから。よく書かれた記事ほど知られていると考える）
 """
 import json
 import re
@@ -25,6 +26,7 @@ HIRA = re.compile(r"^[ぁ-ゟ]+$")
 H1 = re.compile(r"[ぁ-ゟ]")
 KANJI = re.compile(r"[一-鿿々]")
 PARTICLES = set("のはがをにとでやもへか")
+CAP = int(sys.argv[3]) if len(sys.argv) > 3 else 200
 
 
 def broken_kana(name, before, after):
@@ -62,7 +64,10 @@ def main():
     per_cat = {}
     for cat, pages in members.items():
         field, kind, _ = CATS[cat]
+        pages = sorted(pages, key=lambda t: -len((articles.get(t) or {}).get("extract", "")))
         for t in pages:
+            if per_cat.get(cat, 0) >= CAP:
+                break
             if t in seen:
                 continue
             seen.add(t)
