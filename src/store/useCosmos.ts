@@ -15,6 +15,8 @@ import { createSampleData } from '../sampleData';
 import { mergeDataset, ownMemoStars, removeStarter } from '../data/mergeDataset';
 import { applyCorrections, type Corrections } from '../data/applyCorrections';
 import { fixKanaLinksInData } from '../lib/kanaLinks';
+import { applyRefresh } from '../data/applyRefresh';
+import { REFRESH_VERSIONS, loadRefresh, refreshFlag } from '../data/refresh';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
 import { addDay, mergeDays } from '../lib/streak';
@@ -247,6 +249,8 @@ export const useCosmos = create<CosmosState>((set, get) => {
           await repo.setFlag(SPREAD_FLAG);
           await repo.setFlag(FIX_FLAG);
           await repo.setFlag(KANA_FLAG);
+          // 初期セットはいちばん新しい文で作られるので、文の作り直し（差し替え一覧）は済んだことにする
+          for (const v of REFRESH_VERSIONS) await repo.setFlag(refreshFlag(v));
           set({ ...snapshotOf(data), loaded: true });
           return;
         }
@@ -281,6 +285,17 @@ export const useCosmos = create<CosmosState>((set, get) => {
             await repo.save(data);
           }
           await repo.setFlag(KANA_FLAG);
+        }
+        // 初期セットの文を、Wikipediaの今の記事に合わせて作り直した分を、版ごとに1回だけ反映する（src/data/applyRefresh.ts）。
+        // 初期セットのまま変えていない星だけを差し替える。自分で編集・削除した記述がある星はそのまま
+        for (const v of REFRESH_VERSIONS) {
+          if (await repo.getFlag(refreshFlag(v))) continue;
+          const { data: fixed, changed } = applyRefresh(snapshotOf(data), await loadRefresh(v));
+          if (changed > 0) {
+            data = { version: 2, ...collectUnknown(fixed) };
+            await repo.save(data);
+          }
+          await repo.setFlag(refreshFlag(v));
         }
         // 以前の版を入れた後に、初期セットをまとめて削除していた人には入れない
         const removedBefore = (await repo.getFlag('starter-v1-added')) && !data.nodes.some((n) => n.origin === 'starter' && n.status === 'known');
