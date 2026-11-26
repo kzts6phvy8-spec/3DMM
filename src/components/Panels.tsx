@@ -10,6 +10,7 @@ import { categoryColor } from '../lib/util';
 import { displayName, parseLinkIds } from '../lib/knowledge';
 import { normalize, searchIndex } from '../lib/search';
 import { AiSearchButton } from './AiSearchButton';
+import { isOwnStar } from '../lib/ownStars';
 import { addSearchHistory, clearSearchHistory, removeSearchHistory, useSearchHistory } from '../lib/searchHistory';
 
 /** 星を開く（宇宙の視点を動かし、プレビューを出す） */
@@ -196,7 +197,11 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
 export function ListPanel() {
   const nodes = useCosmos((s) => s.nodes);
   const statements = useCosmos((s) => s.statements);
+  const ownOnly = useCosmos((s) => s.ownOnly);
+  const setOwnOnly = useCosmos((s) => s.setOwnOnly);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  // 自分の星（新しく作った・変えた順）
+  const own = useMemo(() => nodes.filter(isOwnStar).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [nodes]);
 
   const unknown = useMemo(() => {
     return nodes
@@ -210,6 +215,37 @@ export function ListPanel() {
 
   return (
     <PanelFrame title="リスト">
+      <div className="own-only-row">
+        <button
+          className={ownOnly ? 'chip active' : 'chip'}
+          aria-pressed={ownOnly}
+          disabled={own.length === 0}
+          onClick={() => setOwnOnly(!ownOnly)}
+        >
+          {ownOnly ? '✓ 自分の星だけ表示中' : '自分の星だけ表示'}
+        </button>
+        <span className="muted small">宇宙とリストに、自分の星（{own.length}個）だけを出します。初期セットの星は隠れるだけで消えません。</span>
+      </div>
+      {ownOnly ? (
+        <>
+          <ul className="panel-list">
+            {own.map((node) => (
+              <li key={node.id}>
+                <button className="panel-item" onClick={() => openStar(node.id)}>
+                  <span className="dot" style={{ background: categoryColor(node.category) }} />
+                  <span className="panel-item-main">
+                    <span className="panel-item-title">{displayName(node)}</span>
+                    {node.summary && <span className="panel-item-sub">{node.summary}</span>}
+                  </span>
+                  <span className="muted small">{node.category}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {own.length === 0 && <p className="muted">自分の星はまだありません。「＋ 追加」や「🔭 AIで調べる」で作れます。</p>}
+        </>
+      ) : (
+        <>
       <p className="muted small">まだ知らない星 {unknown.length}個</p>
       <ul className="panel-list">
         {unknown.map(({ node, from }) => (
@@ -225,6 +261,8 @@ export function ListPanel() {
         ))}
       </ul>
       {unknown.length === 0 && <p className="muted">ありません。</p>}
+        </>
+      )}
     </PanelFrame>
   );
 }

@@ -12,6 +12,7 @@ import { labelPool, labelSlots, labelWidth } from '../lib/labelRegistry';
 import { displayName, mentionEdgesFor, type MentionEdge } from '../lib/knowledge';
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
 import { neighborIds } from '../lib/neighbors';
+import { hiddenStarIds, isOwnStar } from '../lib/ownStars';
 
 function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
   const geometry = useMemo(() => {
@@ -49,8 +50,12 @@ function RelationLines() {
   const statements = useCosmos((s) => s.statements);
   const selectedId = useCosmos((s) => s.selectedId);
   const focusMode = useCosmos((s) => s.mode === 'view' && s.selectedId !== null && !s.overlay);
-  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
-  const mentions = useMemo(() => mentionEdgesFor(statements, nodes), [statements, nodes]);
+  const ownOnly = useCosmos((s) => s.ownOnly);
+  const hidden = useMemo(() => hiddenStarIds(nodes, ownOnly, selectedId), [nodes, ownOnly, selectedId]);
+  // 「自分の星だけ表示」のときは、隠れている星を地図から外す（その星への線も描かない）
+  const byId = useMemo(() => new Map(nodes.filter((n) => !hidden?.has(n.id)).map((n) => [n.id, n])), [nodes, hidden]);
+  const allMentions = useMemo(() => mentionEdgesFor(statements, nodes), [statements, nodes]);
+  const mentions = useMemo(() => (hidden ? allMentions.filter((m) => byId.has(m.a) && byId.has(m.b)) : allMentions), [allMentions, hidden, byId]);
   // 「広げる」で生まれた、まだ知らない星と、もとの星を結ぶ点線
   const seedEdges = useMemo<MentionEdge[]>(
     () =>
@@ -243,8 +248,8 @@ function LabelProjector() {
   // 前のコマと同じ見え方なら、ラベルの計算を省く（星が1万個あっても、止まっているときは軽く）
   const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown }), []);
   useFrame(({ camera, size }) => {
-    const { nodes, labelDensity, connectFromId, mode } = useCosmos.getState();
-    const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}|${connectFromId}|${mode}`;
+    const { nodes, labelDensity, connectFromId, mode, ownOnly } = useCosmos.getState();
+    const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}|${connectFromId}|${mode}|${ownOnly}`;
     if (key === last.key && nodes === last.nodes && near === last.near) return;
     last.key = key;
     last.nodes = nodes;
@@ -255,7 +260,10 @@ function LabelProjector() {
     const densityBonus = labelDensity === 'few' ? -10 : labelDensity === 'many' ? 12 : 0;
     type Cand = { node: KnowledgeNode; text: string; x: number; y: number; w: number; opacity: number; priority: number };
     const cands: Cand[] = [];
+    // 「自分の星だけ表示」で隠れている星の名前は出さない
+    const hidden = hiddenStarIds(nodes, ownOnly, selectedId);
     for (const n of nodes) {
+      if (hidden?.has(n.id)) continue;
       const unknown = n.status === 'unknown';
       const r = unknown ? starRadius(1) * 0.75 : starRadius(n.importance);
       v.set(n.position[0], n.position[1] - r - 0.35, n.position[2]);
@@ -263,6 +271,8 @@ function LabelProjector() {
       // 遠くからは重要な星の名前だけ見せ、近づくほど多くの名前が見えるようにする
       let opacity: number;
       if (near.has(n.id)) opacity = 1;
+      // 「自分の星だけ表示」のときは星が少ないので、遠くても名前を出す（重なるものは下で間引く）
+      else if (hidden && !(selectedId && mode === 'view')) opacity = 1;
       // 星を選んでいる間は、つながっていない星の名前を出さない（つながりを目立たせるため）
       else if (selectedId && mode === 'view') continue;
       else if (unknown) opacity = Math.max(0, Math.min(0.8, (d0 * 0.45 - dist) / (d0 * 0.1)));
@@ -391,6 +401,26 @@ function CameraFit() {
   return null;
 }
 
+/** 「自分の星だけ表示」にしたとき、自分の星がまとめて見える位置へカメラを動かす（向きは今のまま） */
+function OwnOnlyFit() {
+  const { camera, controls } = useThree() as unknown as { camera: THREE.PerspectiveCamera; controls: OrbitControlsImpl | null };
+  const ownOnly = useCosmos((s) => s.ownOnly);
+  useEffect(() => {
+    if (!ownOnly || !controls) return;
+    const own = useCosmos.getState().nodes.filter(isOwnStar);
+    if (own.length === 0) return;
+    const c = new THREE.Vector3(...[0, 1, 2].map((k) => own.reduce((sum, n) => sum + n.position[k], 0) / own.length));
+    const dists = own.map((n) => c.distanceTo(new THREE.Vector3(...n.position))).sort((a, b) => a - b);
+    // 星が少ないときは全部が入るように、多いときは離れた1割を除いて合わせる
+    const r = Math.max(4, dists[dists.length <= 20 ? dists.length - 1 : Math.floor((dists.length - 1) * 0.9)] ?? 4);
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    controls.target.copy(c);
+    camera.position.copy(c).addScaledVector(dir, Math.min(controls.maxDistance, r * 2.6 + 8));
+    controls.update();
+  }, [ownOnly, camera, controls]);
+  return null;
+}
+
 export function CosmosScene() {
   const nodes = useCosmos((s) => s.nodes);
   const relations = useCosmos((s) => s.relations);
@@ -423,6 +453,7 @@ export function CosmosScene() {
       <StarPicker />
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} rotateSpeed={0.7} minDistance={2} maxDistance={400} />
       <CameraFit />
+      <OwnOnlyFit />
       <FocusRig />
       <ViewShift />
       <FogRig />

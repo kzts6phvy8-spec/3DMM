@@ -67,6 +67,9 @@ interface CosmosState extends Data {
   expanded: boolean;
   panel: Panel;
   labelDensity: LabelDensity;
+  /** 宇宙とリストに、自分の星だけを出す（初期セットの星は隠れるだけで消えない）。開き直すと元に戻る */
+  ownOnly: boolean;
+  setOwnOnly(v: boolean): void;
   /** 長押しで動かしている星 */
   draggingId: string | null;
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
@@ -213,6 +216,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
     expanded: false,
     panel: null,
     labelDensity: loadDensity(),
+    ownOnly: false,
     draggingId: null,
     engagement: {},
     activityDays: [],
@@ -397,6 +401,10 @@ export const useCosmos = create<CosmosState>((set, get) => {
 
     openPanel(panel) {
       set({ panel });
+    },
+
+    setOwnOnly(v) {
+      set({ ownOnly: v });
     },
 
     setLabelDensity(v) {

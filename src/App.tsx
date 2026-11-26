@@ -11,7 +11,7 @@ import { StreakCard } from './components/StreakCard';
 import { WelcomeCard, isFirstVisit } from './components/WelcomeCard';
 import { SyncConflictDialog } from './components/SyncConflictDialog';
 import { startSync } from './sync/sync';
-import { BottomNav, ErrorToast, ModeBanner, NodeList, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
+import { BottomNav, ErrorToast, ModeBanner, NodeList, OwnOnlyNotice, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
 import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
 import { ReportPanel } from './components/ReportPanel';
 import { QuizPanel } from './components/QuizPanel';
@@ -61,6 +61,7 @@ export default function App() {
         <NodeList />
       )}
       <TopBar onAdd={() => setForm({ editId: null })} />
+      <OwnOnlyNotice />
       {firstVisit ? <WelcomeCard /> : <StreakCard />}
       <SyncConflictDialog />
       <ModeBanner />
