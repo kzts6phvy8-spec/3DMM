@@ -1,16 +1,33 @@
 // 初期セットなどのデータを、今のデータを消さずに追加・削除する
-import type { CosmosData, KnowledgeNode } from '../types';
+import type { CosmosData, KnowledgeNode, Statement } from '../types';
 import { displayName, parseLinkIds } from '../lib/knowledge';
 import memoKeys from './memoKeys.json';
 
 /** 利用者のメモから作った星のID（以前の初期セット第5・6弾。2026-11-21に初期セットから外した） */
-const MEMO_IDS = new Set([...memoKeys.stars, ...memoKeys.extra].map((k) => `starter-${k}`));
+const MEMO_IDS = new Set(memoKeys.stars.map((k) => `starter-${k}`));
 export const isMemoStar = (id: string) => MEMO_IDS.has(id);
+/** メモの文が書き足されていた、初期セットの星（アインシュタインなど193個） */
+const MEMO_EXTRA_STAR_IDS = new Set(memoKeys.extra.map((k) => `starter-${k}`));
+/** その星に書き足されていたメモの文のID（198個）。2026-11-26、利用者の指示で消す */
+const MEMO_EXTRA_STATEMENT_IDS = new Set(memoKeys.extraStatements.map((k) => `starter-${k}`));
 
-/** メモの星を「自分の星」にする（初期セットの印を外す）。同期で古い印のデータが届いても、読み込むたびに直す */
-export function ownMemoStars<T extends { nodes: KnowledgeNode[] }>(data: T): T {
-  if (!data.nodes.some((n) => n.origin === 'starter' && MEMO_IDS.has(n.id))) return data;
-  return { ...data, nodes: data.nodes.map((n) => (n.origin === 'starter' && MEMO_IDS.has(n.id) ? { ...n, origin: 'user' as const } : n)) };
+/**
+ * メモの扱いをそろえる。読み込むたびに行う（同期やバックアップで古いデータが届いても直るように）。変えるところがなければ、同じものを返す
+ * - メモから作った星は「自分の星」にする（初期セットの印を外す）
+ * - 初期セットの星に書き足されていたメモの文は消す（2026-11-26、利用者が「書き足した文だけ消す」を選んだ）
+ * - その星は「初期セット」に戻す（以前は「自分の星」にしていたが、メモの文が一度も入っていない端末でも変わってしまっていた）
+ */
+export function fixMemoData<T extends { nodes: KnowledgeNode[]; statements: Statement[] }>(data: T): T {
+  const fixNode = (n: KnowledgeNode) =>
+    (n.origin === 'starter' && MEMO_IDS.has(n.id)) || (n.origin === 'user' && MEMO_EXTRA_STAR_IDS.has(n.id));
+  const nodesChange = data.nodes.some(fixNode);
+  const statementsChange = data.statements.some((st) => MEMO_EXTRA_STATEMENT_IDS.has(st.id));
+  if (!nodesChange && !statementsChange) return data;
+  return {
+    ...data,
+    nodes: nodesChange ? data.nodes.map((n) => (fixNode(n) ? { ...n, origin: MEMO_IDS.has(n.id) ? ('user' as const) : ('starter' as const) } : n)) : data.nodes,
+    statements: statementsChange ? data.statements.filter((st) => !MEMO_EXTRA_STATEMENT_IDS.has(st.id)) : data.statements,
+  };
 }
 
 type Data = Omit<CosmosData, 'version'>;

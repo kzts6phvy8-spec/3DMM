@@ -192,7 +192,7 @@ src/
   data/vital10k.json      初期セット第4弾（Wikipedia「1万の項目」から約8,700個。scripts/build_vital10k.py で作成）
   data/applyRefresh.ts    初期セットの文の作り直し（Wikipediaの今の記事に合わせる）を端末に1回だけ反映する。差し替え一覧は data/refresh/<年-月>.json（置くだけで読み込まれる）。手順は docs/process/wikipedia-refresh.md
   data/trivia.json        初期セット第7弾（クイズ・雑学向けの分野。Wikipediaのカテゴリから約4,500個。scripts/build_trivia.py で作成）
-  data/memoKeys.json      利用者のメモから作った星のキーだけの一覧（以前の初期セット第5・6弾。2026-11-21に初期セットから外し、元データもリポジトリから消した）。初期セットをまとめて削除しても消さず、読み込み時に「自分の星」にする
+  data/memoKeys.json      利用者のメモから作った星のキーだけの一覧（以前の初期セット第5・6弾。2026-11-21に初期セットから外し、元データもリポジトリから消した）。初期セットをまとめて削除しても消さず、読み込み時に「自分の星」にする。初期セットの星に書き足されていたメモの文（198個。IDだけを extraStatements に持つ）は、2026-11-26に利用者の指示で消し、その星（extra の193個）は初期セットに戻した（mergeDataset.ts の fixMemoData）
   data/corrections.json   初期セットの壊れた記述の直し方（元データは直し済み）。端末のデータには data/applyCorrections.ts で1回だけ反映（版は useCosmos.ts の FIX_FLAG）
   components/StarField.tsx 星をまとめて描く・タップ／長押しの判定（星が多くても軽く）
   sampleData.ts           初回起動時のサンプル
