@@ -1,8 +1,8 @@
 """初期セット第7弾（クイズ・雑学向けの分野）を作る。2026-11-26、利用者が「B：クイズ・雑学向けの分野だけ足す」を選んだ。
 
 使い方：
-  python3 scripts/build_trivia.py <作業用フォルダ> src/data/trivia.json [1カテゴリの上限（既定200）]
-  （作業用フォルダには scripts/fetch_trivia.py が作った members.json・articles.json と、existing-names.json・starter-specs.json がある）
+  python3 scripts/build_trivia.py <作業用フォルダ> src/data/trivia.json [1カテゴリの上限（既定180）]
+  （作業用フォルダには scripts/fetch_trivia.py が作った members.json・articles.json と、starter-specs.json がある）
 
 作るもの（第3・4弾と同じ決まり）：
   - 星：記事名（区別の括弧は「補足」にする）・分野と種類（カテゴリから。fetch_trivia.py の CATS）
@@ -11,8 +11,8 @@
   - リンク：文の中に出てくる、ほかの星の名前を [[名前]] にする（1文に最大3つ。第4弾と同じ Linker）
     ひらがなだけの名前が言葉の途中に付くリンクは、アプリの src/lib/kanaLinks.ts と同じ決まりで、ここでは作らない
   - 既にある星と同じ名前の項目は作らない。記事がない項目・曖昧さ回避・一覧の記事は外す
-  - 会社のマスコット・登録商標の商品・テレビやゲームなどの作品の記事は外す（雑学の星として弱いため。冒頭の文で判断）
-  - 分野が偏らないように、1つのカテゴリから選ぶのは最大 CAP 個（記事の冒頭が長いものから。よく書かれた記事ほど知られていると考える）
+  - 会社のマスコット・登録商標の商品・テレビ・映画・ゲームなどの作品・自治体の記事は外す（雑学の星として弱いため。冒頭の文で判断）
+  - 分野が偏らないように、1つのカテゴリから選ぶのは最大 CAP 個（既定180。合計が3,000〜5,000個になるように）（記事の冒頭が長いものから。よく書かれた記事ほど知られていると考える）
 """
 import json
 import re
@@ -21,14 +21,16 @@ import sys
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 from build_vital import sentences, split_qualifier  # noqa: E402
 from build_vital10k import Linker  # noqa: E402
-from fetch_trivia_cats import CATS  # noqa: E402
+from fetch_trivia_cats import CATS, existing_names  # noqa: E402
 
 HIRA = re.compile(r"^[ぁ-ゟ]+$")
 H1 = re.compile(r"[ぁ-ゟ]")
 KANJI = re.compile(r"[一-鿿々]")
 PARTICLES = set("のはがをにとでやもへか")
-NOT_TRIVIA = re.compile(r"マスコットキャラクター|登録商標|写真集|ゲーム|ドラマ|放送|アニメ|漫画|アイドル")
-CAP = int(sys.argv[3]) if len(sys.argv) > 3 else 200
+NOT_TRIVIA = re.compile(r"マスコットキャラクター|登録商標|写真集|ゲーム|ドラマ|放送|アニメ|漫画|アイドル|映画|フィルム|性的|性風俗")
+# 自治体の記事（「日本の城」の小分類の城下町などから入る）
+CITY = re.compile(r"[市町村](である)?。$")
+CAP = int(sys.argv[3]) if len(sys.argv) > 3 else 180
 
 
 def broken_kana(name, before, after):
@@ -59,7 +61,7 @@ def main():
     work, out_path = sys.argv[1:3]
     members = json.load(open(f"{work}/members.json", encoding="utf-8"))
     articles = json.load(open(f"{work}/articles.json", encoding="utf-8"))
-    existing = set(json.load(open(f"{work}/existing-names.json", encoding="utf-8")))
+    existing = existing_names(work)
 
     skipped = {"既にある星": 0, "記事なし": 0, "曖昧さ回避": 0, "未取得": 0, "文が取れない": 0, "同じ記事": 0, "一覧": 0, "作品・商品": 0}
     chosen, used_articles, seen = [], set(), set()
@@ -100,7 +102,7 @@ def main():
             if not sents:
                 skipped["文が取れない"] += 1
                 continue
-            if NOT_TRIVIA.search(sents[0]):
+            if NOT_TRIVIA.search(sents[0]) or CITY.search(re.sub(r"\[\[|\]\]", "", sents[0])):
                 skipped["作品・商品"] += 1
                 continue
             used_articles.add(art)

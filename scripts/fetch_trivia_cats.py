@@ -14,3 +14,17 @@ CATS = {
     "楽器": ("音楽", "other", True), "宝石": ("地球科学", "other", False), "恐竜": ("生物学", "other", True),
     "日本の城": ("建築", "place", True), "星座": ("天文学", "concept", False),
 }
+
+
+def existing_names(work):
+    """既にある星（初期セット第1〜4弾）の名前の一覧。作業用フォルダの starter-specs.json から作る。
+    starter-specs.json は node --experimental-strip-types scripts/dump_starter_names.ts > starter-specs.json で作る"""
+    import json
+    names = set()
+    for s in json.load(open(f"{work}/starter-specs.json", encoding="utf-8")):
+        names.add(s["title"])
+        names.update(s["aliases"])
+        if s["qualifier"]:
+            names.add(f"{s['title']}（{s['qualifier']}）")
+            names.add(f"{s['title']} ({s['qualifier']})")  # Wikipediaの記事名の形
+    return names
