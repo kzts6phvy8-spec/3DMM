@@ -19,6 +19,7 @@ interface VitalData {
  *   （scripts/build_vital10k.py で作成。データは src/data/vital10k.json）
  * - 第5弾・第6弾（利用者のメモから作った星）は、2026-11-21に初期セットから外した（利用者の個人的なメモのため）。
  *   すでに入っている端末では、useCosmos の init で「自分の星」に変える（src/data/memoKeys.json）。
+ *   初期セットの星に書き足されていたメモの文は、2026-11-26に利用者の指示で消した（mergeDataset.ts の fixMemoData）。
  * - 第7弾（約4,500個）：クイズ・雑学向けの分野（ことわざ・和菓子・年中行事・妖怪・恐竜など）。日本語版Wikipediaのカテゴリから集め、
  *   記事の冒頭の文をそのまま使う（scripts/fetch_trivia.py・build_trivia.py で作成。データは src/data/trivia.json）
  * 第3弾・第4弾・第7弾のデータは大きいので、必要なときだけ読み込む（ふだんの起動を軽くするため）。
