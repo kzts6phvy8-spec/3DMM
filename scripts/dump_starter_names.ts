@@ -1,4 +1,4 @@
-// 初期セット第1〜4弾の星の「キー・名前・補足・別名」を書き出す（第5弾を作るときに、同じ星を二重に作らないため）。
+// 初期セット第1〜4弾の星の「キー・名前・補足・別名」を書き出す（第5弾以降を作るときに、同じ星を二重に作らないため）。
 // 使い方：node scripts/dump_starter_names.ts > 出力.json
 import { readFileSync } from 'node:fs';
 import { STARTER_STARS } from '../src/data/starterSet.ts';
