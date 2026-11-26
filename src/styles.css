@@ -95,7 +95,9 @@ button.danger { color: var(--danger); }
   animation: sheet-in 0.22s ease-out;
 }
 @keyframes sheet-in { from { transform: translateY(40px); opacity: 0; } }
-.sheet-handle { width: 40px; height: 5px; border-radius: 3px; background: var(--panel-border); margin: 8px auto 0; }
+.sheet-handle { width: 40px; height: 5px; border-radius: 3px; background: var(--panel-border); margin: 0 auto; }
+/* 取っ手は指で引きやすいように、横いっぱい・高さを広めにとる（引くと縮む・開く） */
+.sheet-handle-area { flex-shrink: 0; padding: 10px 0 8px; touch-action: none; cursor: grab; }
 .sheet-header { display: flex; align-items: center; gap: 10px; padding: 6px 12px 0 16px; }
 .sheet-header h2 { flex: 1; font-size: 20px; margin: 0; }
 .sheet-actions { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
