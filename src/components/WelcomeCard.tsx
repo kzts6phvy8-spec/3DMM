@@ -25,26 +25,18 @@ export function isFirstVisit(): boolean {
 function ConstellationArt() {
   return (
     <svg className="welcome-art" aria-hidden="true" viewBox="0 0 390 420">
-      <g stroke="#FFD27A" strokeOpacity="0.35" strokeWidth="1">
-        <line x1="195" y1="210" x2="96" y2="128" />
-        <line x1="195" y1="210" x2="300" y2="110" />
-        <line x1="195" y1="210" x2="282" y2="320" />
-        <line x1="195" y1="210" x2="110" y2="312" />
-      </g>
-      <g fill="#EEF1FA" fillOpacity="0.35">
-        <circle cx="40" cy="40" r="1.2" /><circle cx="340" cy="30" r="1" /><circle cx="220" cy="70" r="1.4" /><circle cx="60" cy="220" r="1" />
-        <circle cx="360" cy="230" r="1.3" /><circle cx="150" cy="400" r="1" /><circle cx="320" cy="400" r="1.2" /><circle cx="30" cy="380" r="1" />
-      </g>
-      <g fill="#FFD27A">
-        <circle cx="96" cy="128" r="4" /><circle cx="300" cy="110" r="3" /><circle cx="282" cy="320" r="3.5" /><circle cx="110" cy="312" r="3" />
-      </g>
+      <g fill="#EEF1FA"><circle cx="173" cy="85" r="1.2" fillOpacity="0.25" /><circle cx="45" cy="282" r="0.8" fillOpacity="0.45" /><circle cx="306" cy="37" r="1.4" fillOpacity="0.35" /><circle cx="27" cy="52" r="1.2" fillOpacity="0.6" /><circle cx="43" cy="131" r="0.8" fillOpacity="0.6" /><circle cx="38" cy="297" r="0.8" fillOpacity="0.35" /><circle cx="330" cy="329" r="1.4" fillOpacity="0.25" /><circle cx="303" cy="307" r="1.2" fillOpacity="0.25" /><circle cx="121" cy="31" r="1.4" fillOpacity="0.35" /><circle cx="156" cy="222" r="1" fillOpacity="0.25" /><circle cx="300" cy="165" r="1.4" fillOpacity="0.35" /><circle cx="60" cy="305" r="1.4" fillOpacity="0.35" /><circle cx="198" cy="57" r="1.4" fillOpacity="0.25" /><circle cx="296" cy="38" r="1.4" fillOpacity="0.35" /><circle cx="262" cy="356" r="1.4" fillOpacity="0.6" /><circle cx="168" cy="246" r="1.4" fillOpacity="0.6" /><circle cx="193" cy="161" r="1" fillOpacity="0.35" /><circle cx="365" cy="407" r="1" fillOpacity="0.25" /><circle cx="302" cy="161" r="1.4" fillOpacity="0.6" /><circle cx="183" cy="381" r="1.2" fillOpacity="0.45" /><circle cx="319" cy="45" r="0.8" fillOpacity="0.6" /><circle cx="92" cy="395" r="1" fillOpacity="0.35" /><circle cx="258" cy="223" r="0.8" fillOpacity="0.25" /><circle cx="293" cy="301" r="1" fillOpacity="0.45" /><circle cx="363" cy="187" r="1.4" fillOpacity="0.6" /><circle cx="304" cy="241" r="0.8" fillOpacity="0.25" /><circle cx="146" cy="250" r="1.6" fillOpacity="0.25" /><circle cx="39" cy="382" r="1.6" fillOpacity="0.45" /><circle cx="339" cy="303" r="1.6" fillOpacity="0.6" /><circle cx="153" cy="374" r="1.2" fillOpacity="0.45" /><circle cx="19" cy="244" r="1" fillOpacity="0.35" /><circle cx="320" cy="67" r="1.2" fillOpacity="0.25" /><circle cx="119" cy="401" r="1" fillOpacity="0.35" /><circle cx="134" cy="211" r="1.2" fillOpacity="0.6" /><circle cx="49" cy="93" r="1.2" fillOpacity="0.6" /><circle cx="289" cy="150" r="1" fillOpacity="0.6" /><circle cx="289" cy="150" r="1.6" fillOpacity="0.6" /><circle cx="191" cy="357" r="1.2" fillOpacity="0.35" /><circle cx="85" cy="50" r="1" fillOpacity="0.35" /><circle cx="126" cy="345" r="1" fillOpacity="0.25" /><circle cx="256" cy="309" r="1" fillOpacity="0.45" /><circle cx="152" cy="10" r="1" fillOpacity="0.6" /><circle cx="281" cy="197" r="1.4" fillOpacity="0.45" /><circle cx="72" cy="361" r="1.4" fillOpacity="0.25" /><circle cx="241" cy="407" r="1.6" fillOpacity="0.6" /><circle cx="209" cy="61" r="1.2" fillOpacity="0.6" /><circle cx="39" cy="105" r="0.8" fillOpacity="0.35" /><circle cx="233" cy="91" r="0.8" fillOpacity="0.45" /><circle cx="315" cy="34" r="0.8" fillOpacity="0.25" /><circle cx="298" cy="85" r="1.4" fillOpacity="0.25" /><circle cx="194" cy="322" r="0.8" fillOpacity="0.25" /><circle cx="114" cy="322" r="1.2" fillOpacity="0.35" /><circle cx="332" cy="137" r="1" fillOpacity="0.45" /><circle cx="250" cy="70" r="0.8" fillOpacity="0.6" /><circle cx="246" cy="253" r="1.2" fillOpacity="0.45" /><circle cx="51" cy="81" r="0.8" fillOpacity="0.45" /><circle cx="143" cy="253" r="1.6" fillOpacity="0.35" /><circle cx="272" cy="19" r="1" fillOpacity="0.45" /><circle cx="83" cy="361" r="1.4" fillOpacity="0.25" /><circle cx="278" cy="160" r="1.6" fillOpacity="0.25" /></g>
+      <g stroke="#FFD27A" strokeOpacity="0.14" strokeWidth="1"><line x1="96" y1="128" x2="40" y2="90" /><line x1="195" y1="62" x2="150" y2="60" /><line x1="300" y1="110" x2="350" y2="60" /><line x1="282" y1="320" x2="370" y2="300" /><line x1="110" y1="312" x2="30" y2="330" /><line x1="282" y1="320" x2="200" y2="380" /><line x1="195" y1="62" x2="250" y2="40" /><line x1="60" y1="215" x2="20" y2="180" /></g>
+      <g fill="#FFD27A" fillOpacity="0.45"><circle cx="40" cy="90" r="2" /><circle cx="150" cy="60" r="2" /><circle cx="350" cy="60" r="2" /><circle cx="370" cy="300" r="2" /><circle cx="30" cy="330" r="2" /><circle cx="200" cy="380" r="2" /><circle cx="250" cy="40" r="2" /><circle cx="20" cy="180" r="2" /></g>
+      <g stroke="#FFD27A" strokeOpacity="0.4" strokeWidth="1"><line x1="195" y1="210" x2="96" y2="128" /><line x1="195" y1="210" x2="300" y2="110" /><line x1="195" y1="210" x2="282" y2="320" /><line x1="195" y1="210" x2="110" y2="312" /><line x1="195" y1="210" x2="60" y2="215" /><line x1="195" y1="210" x2="335" y2="215" /><line x1="195" y1="210" x2="195" y2="62" /></g>
+      <g fill="#FFD27A"><circle cx="96" cy="128" r="4" /><circle cx="300" cy="110" r="3" /><circle cx="282" cy="320" r="3.5" /><circle cx="110" cy="312" r="3" /><circle cx="60" cy="215" r="2.5" /><circle cx="335" cy="215" r="3" /><circle cx="195" cy="62" r="2.5" /></g>
       <circle cx="195" cy="210" r="16" fill="#9CC2FF" fillOpacity="0.15" />
       <circle cx="195" cy="210" r="7" fill="#EEF1FA" />
     </svg>
   );
 }
 
-/** 2枚目：3つのさわり方 */
+/** 2枚目：3つの操作方法 */
 function HowToArt() {
   const rows: { icon: React.ReactNode; text: string }[] = [
     {
@@ -105,7 +97,7 @@ function AiExampleArt() {
 
 const PAGES: { art: React.ReactNode; title: React.ReactNode; text?: string }[] = [
   { art: <ConstellationArt />, title: <>知識の宇宙へ<br />ようこそ</>, text: 'ひとつの星が、ひとつの知識。光の線は、知識どうしのつながりです。' },
-  { art: <HowToArt />, title: 'さわり方' },
+  { art: <HowToArt />, title: '操作方法' },
   {
     art: <AiExampleArt />,
     title: <>知らない言葉は、<br />AIで調べる</>,
