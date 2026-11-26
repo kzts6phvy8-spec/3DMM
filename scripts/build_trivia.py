@@ -11,7 +11,7 @@
   - リンク：文の中に出てくる、ほかの星の名前を [[名前]] にする（1文に最大3つ。第4弾と同じ Linker）
     ひらがなだけの名前が言葉の途中に付くリンクは、アプリの src/lib/kanaLinks.ts と同じ決まりで、ここでは作らない
   - 既にある星と同じ名前の項目は作らない。記事がない項目・曖昧さ回避・一覧の記事は外す
-  - 会社のマスコット・登録商標の商品の記事は外す（雑学の星として弱いため。冒頭の文で判断）
+  - 会社のマスコット・登録商標の商品・テレビやゲームなどの作品の記事は外す（雑学の星として弱いため。冒頭の文で判断）
   - 分野が偏らないように、1つのカテゴリから選ぶのは最大 CAP 個（記事の冒頭が長いものから。よく書かれた記事ほど知られていると考える）
 """
 import json
@@ -27,7 +27,7 @@ HIRA = re.compile(r"^[ぁ-ゟ]+$")
 H1 = re.compile(r"[ぁ-ゟ]")
 KANJI = re.compile(r"[一-鿿々]")
 PARTICLES = set("のはがをにとでやもへか")
-NOT_TRIVIA = re.compile(r"マスコットキャラクター|登録商標")
+NOT_TRIVIA = re.compile(r"マスコットキャラクター|登録商標|写真集|ゲーム|ドラマ|放送|アニメ|漫画|アイドル")
 CAP = int(sys.argv[3]) if len(sys.argv) > 3 else 200
 
 
@@ -61,7 +61,7 @@ def main():
     articles = json.load(open(f"{work}/articles.json", encoding="utf-8"))
     existing = set(json.load(open(f"{work}/existing-names.json", encoding="utf-8")))
 
-    skipped = {"既にある星": 0, "記事なし": 0, "曖昧さ回避": 0, "未取得": 0, "文が取れない": 0, "同じ記事": 0, "一覧": 0, "マスコット・商品": 0}
+    skipped = {"既にある星": 0, "記事なし": 0, "曖昧さ回避": 0, "未取得": 0, "文が取れない": 0, "同じ記事": 0, "一覧": 0, "作品・商品": 0}
     chosen, used_articles, seen = [], set(), set()
     per_cat = {}
     for cat, pages in members.items():
@@ -101,7 +101,7 @@ def main():
                 skipped["文が取れない"] += 1
                 continue
             if NOT_TRIVIA.search(sents[0]):
-                skipped["マスコット・商品"] += 1
+                skipped["作品・商品"] += 1
                 continue
             used_articles.add(art)
             chosen.append((t, art, field, kind, sents))

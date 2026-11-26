@@ -234,7 +234,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
           }
         }
         // 初期セットの版。中身（雑学など）を増やしたら上げる。上げると、足りない記述だけが1回補われる
-        const STARTER_FLAG = 'starter-v6-added';
+        const STARTER_FLAG = 'starter-v7-added';
         const SPREAD_FLAG = 'layout-spread-v1';
         // 初期セットの壊れた記述を直した版。直し方（corrections.json）を増やしたら上げる
         const FIX_FLAG = 'corrections-v2';

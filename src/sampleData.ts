@@ -19,12 +19,15 @@ interface VitalData {
  *   （scripts/build_vital10k.py で作成。データは src/data/vital10k.json）
  * - 第5弾・第6弾（利用者のメモから作った星）は、2026-11-21に初期セットから外した（利用者の個人的なメモのため）。
  *   すでに入っている端末では、useCosmos の init で「自分の星」に変える（src/data/memoKeys.json）。
- * 第3弾・第4弾のデータは大きいので、必要なときだけ読み込む（ふだんの起動を軽くするため）。
+ * - 第7弾（約4,500個）：クイズ・雑学向けの分野（ことわざ・和菓子・年中行事・妖怪・恐竜など）。日本語版Wikipediaのカテゴリから集め、
+ *   記事の冒頭の文をそのまま使う（scripts/fetch_trivia.py・build_trivia.py で作成。データは src/data/trivia.json）
+ * 第3弾・第4弾・第7弾のデータは大きいので、必要なときだけ読み込む（ふだんの起動を軽くするため）。
  */
 export async function createSampleData(): Promise<CosmosData> {
-  const [vital, vital10k] = await Promise.all([
+  const [vital, vital10k, trivia] = await Promise.all([
     import('./data/vital.json').then((m) => m.default as unknown as VitalData),
     import('./data/vital10k.json').then((m) => m.default as unknown as { stars: StarSpec[] }),
+    import('./data/trivia.json').then((m) => m.default as unknown as { stars: StarSpec[] }),
   ]);
   const extraSources: SourceSpec[] = [];
   const base = [
@@ -46,7 +49,7 @@ export async function createSampleData(): Promise<CosmosData> {
     origin: 'starter',
     createdAt: '2026-11-13T00:00:00.000Z',
     sources: extraSources,
-    stars: [...base, ...vital.stars, ...vital10k.stars],
+    stars: [...base, ...vital.stars, ...vital10k.stars, ...trivia.stars],
     relations: [...STARTER_RELATIONS, ...STARTER_RELATIONS_2],
   });
 }

@@ -10,7 +10,7 @@ CATS = {
     "日本の年中行事": ("暦と時間", "event", True), "日本の祭り": ("暦と時間", "event", True), "日本の記念日": ("暦と時間", "event", False),
     "日本の伝統芸能": ("芸術", "concept", True), "歌舞伎の演目": ("芸術", "work", False), "落語の演目": ("芸術", "work", True),
     "日本の伝統工芸品": ("芸術", "other", True), "茶道": ("芸術", "concept", False),
-    "日本の神": ("宗教", "person", True), "日本の妖怪": ("宗教", "other", True), "日本の民話": ("言語", "work", True),
+    "日本の神": ("宗教", "person", True), "日本の妖怪": ("宗教", "other", True), "日本の民話": ("言語", "work", False),
     "楽器": ("音楽", "other", True), "宝石": ("地球科学", "other", False), "恐竜": ("生物学", "other", True),
-    "日本の城": ("建築", "place", True), "星座": ("天文学", "concept", True),
+    "日本の城": ("建築", "place", True), "星座": ("天文学", "concept", False),
 }
