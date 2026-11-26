@@ -12,7 +12,7 @@
     ひらがなだけの名前が言葉の途中に付くリンクは、アプリの src/lib/kanaLinks.ts と同じ決まりで、ここでは作らない
   - 既にある星と同じ名前の項目は作らない。記事がない項目・曖昧さ回避・一覧の記事は外す
   - 会社のマスコット・登録商標の商品・テレビ・映画・ゲームなどの作品・自治体の記事は外す（雑学の星として弱いため。冒頭の文で判断）
-  - 分野が偏らないように、1つのカテゴリから選ぶのは最大 CAP 個（既定180。合計が3,000〜5,000個になるように）（記事の冒頭が長いものから。よく書かれた記事ほど知られていると考える）
+  - 分野が偏らないように、1つのカテゴリから選ぶのは最大180個（3つ目の引数で変えられる。合計が3,000〜5,000個になるように。記事の冒頭が長いものから。よく書かれた記事ほど知られていると考える）
 """
 import json
 import re
@@ -30,7 +30,6 @@ PARTICLES = set("のはがをにとでやもへか")
 NOT_TRIVIA = re.compile(r"マスコットキャラクター|登録商標|写真集|ゲーム|ドラマ|放送|アニメ|漫画|アイドル|映画|フィルム|性的|性風俗")
 # 自治体の記事（「日本の城」の小分類の城下町などから入る）
 CITY = re.compile(r"[市町村](である)?。$")
-CAP = int(sys.argv[3]) if len(sys.argv) > 3 else 180
 
 
 def broken_kana(name, before, after):
@@ -59,6 +58,7 @@ def unlink_broken(text):
 
 def main():
     work, out_path = sys.argv[1:3]
+    cap = int(sys.argv[3]) if len(sys.argv) > 3 else 180
     members = json.load(open(f"{work}/members.json", encoding="utf-8"))
     articles = json.load(open(f"{work}/articles.json", encoding="utf-8"))
     existing = existing_names(work)
@@ -70,7 +70,7 @@ def main():
         field, kind, _ = CATS[cat]
         pages = sorted(pages, key=lambda t: -len((articles.get(t) or {}).get("extract", "")))
         for t in pages:
-            if per_cat.get(cat, 0) >= CAP:
+            if per_cat.get(cat, 0) >= cap:
                 break
             if t in seen:
                 continue
