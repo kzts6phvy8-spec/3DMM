@@ -10,6 +10,7 @@ import { categoryColor } from '../lib/util';
 import { displayName, parseLinkIds } from '../lib/knowledge';
 import { normalize, searchIndex } from '../lib/search';
 import { AiSearchButton } from './AiSearchButton';
+import { addSearchHistory, clearSearchHistory, removeSearchHistory, useSearchHistory } from '../lib/searchHistory';
 
 /** 星を開く（宇宙の視点を動かし、プレビューを出す） */
 export function openStar(id: string, expanded = false) {
@@ -40,6 +41,10 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [kind, setKind] = useState<StarKind | null>(null);
+  const history = useSearchHistory();
+  const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  // 消した星は履歴に出さない
+  const historyNodes = history.map((id) => byId.get(id)).filter((n): n is KnowledgeNode => !!n);
 
   const categories = useMemo(
     () => [...new Set(nodes.filter((n) => n.status === 'known' && n.category).map((n) => n.category))].sort((a, b) => a.localeCompare(b, 'ja')),
@@ -115,7 +120,13 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
       <ul className="panel-list">
         {results.map(({ node, snippet }) => (
           <li key={node.id}>
-            <button className="panel-item" onClick={() => openStar(node.id)}>
+            <button
+              className="panel-item"
+              onClick={() => {
+                addSearchHistory(node.id);
+                openStar(node.id);
+              }}
+            >
               <span className="dot" style={{ background: node.status === 'unknown' ? '#8f99c2' : categoryColor(node.category) }} />
               <span className="panel-item-main">
                 <span className="panel-item-title">
@@ -139,7 +150,43 @@ export function SearchPanel({ onCreate }: { onCreate: (title: string) => void })
           )}
         </div>
       )}
-      {!query.trim() && !category && !kind && <p className="muted small">名前・記述・出典の言葉で探せます。分野や種類で絞り込むこともできます。</p>}
+      {!query.trim() && !category && !kind && (
+        <>
+          {historyNodes.length > 0 && (
+            <section className="search-history" aria-label="最近探した星">
+              <div className="section-head">
+                <h3>最近探した星</h3>
+                <button className="small-btn ghost" onClick={() => window.confirm('検索履歴をすべて消しますか？') && clearSearchHistory()}>
+                  すべて消す
+                </button>
+              </div>
+              <ul className="panel-list">
+                {historyNodes.map((node) => (
+                  <li key={node.id} className="history-item">
+                    <button
+                      className="panel-item"
+                      onClick={() => {
+                        addSearchHistory(node.id);
+                        openStar(node.id);
+                      }}
+                    >
+                      <span className="dot" style={{ background: node.status === 'unknown' ? '#8f99c2' : categoryColor(node.category) }} />
+                      <span className="panel-item-main">
+                        <span className="panel-item-title">{displayName(node)}</span>
+                      </span>
+                      <span className="muted small">{node.category}</span>
+                    </button>
+                    <button className="icon-btn small" onClick={() => removeSearchHistory(node.id)} aria-label={`「${displayName(node)}」を履歴から消す`}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <p className="muted small">名前・記述・出典の言葉で探せます。分野や種類で絞り込むこともできます。</p>
+        </>
+      )}
     </PanelFrame>
   );
 }

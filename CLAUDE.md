@@ -182,6 +182,7 @@ src/
   sync/                   端末の同期（config：接続先と公開してよい鍵／payload：圧縮／sync：ログイン・そろえ方）
                           有料プランの支払い（Stripe）も sync.ts（startCheckout・openBillingPortal）。関数は supabase/functions/billing、手順は docs/billing-setup.md
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
+  lib/searchHistory.ts    検索履歴（「探す」の結果から開いた星を10個まで。保存キー search-history-v1、端末の中だけ。バックアップ・同期には含めない）
   lib/warmup.ts           手が空いているときに、検索の索引などの重い下ごしらえを先に済ませる
   lib/labelRegistry.ts    星の名前ラベルの要素（決まった数を使い回す。星が多くても軽く）
   lib/externalSearch.ts   「調べる」ボタン用の外部検索
