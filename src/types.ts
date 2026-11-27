@@ -83,6 +83,9 @@ export const RELATION_TYPES = {
   opposition: '対立・反論',
   application: '応用・発展',
   partWhole: '部分と全体',
+  // 2026-11-27に追加（あなたが決定）。言及の線を分類すると、この2つが全体の約4分の1あったため
+  category: '分類（〜の一種）',
+  place: '場所・国',
   other: 'その他',
 } as const;
 
