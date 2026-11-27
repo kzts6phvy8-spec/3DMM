@@ -24,6 +24,8 @@ export const RELATION_COLORS: Record<RelationType, string> = {
   opposition: '#ff6b8b',
   application: '#8dffb0',
   partWhole: '#ffe27a',
+  category: '#5fd1c1',
+  place: '#e58cff',
   other: '#9aa7c7',
 };
 
