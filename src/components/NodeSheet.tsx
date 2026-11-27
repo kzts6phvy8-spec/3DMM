@@ -34,8 +34,10 @@ function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeN
             key={i}
             className={`inline-link${target.status === 'unknown' ? ' is-unknown' : ''}`}
             onClick={() => navigate(target.id)}
+            aria-label={displayName(target)}
           >
-            {displayName(target)}
+            {/* 文の中では補足を付けずに名前だけを出す（例：「データ（コンピュータ）通信」ではなく「データ通信」）。補足は開いた星の画面で見える */}
+            {target.title}
           </button>
         );
       })}

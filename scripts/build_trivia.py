@@ -111,7 +111,11 @@ def main():
 
     terms = set(existing)
     for t, art, *_ in chosen:
-        terms.add(split_qualifier(art)[0])
+        # 区別の括弧が付いた記事（例：「ころ (麺類)」「茨城 (古代山城)」）は、その名前のふつうの意味が別の記事にある。
+        # 括弧を外した名前でリンクすると「ところ」「茨城県」などに間違って付くので、リンクの名前にしない（2026-11-27に直した）
+        title, qualifier = split_qualifier(art)
+        if not qualifier:
+            terms.add(title)
     linker = Linker(terms)
 
     stars = []
