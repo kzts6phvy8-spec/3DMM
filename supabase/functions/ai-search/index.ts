@@ -17,8 +17,17 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+/** 画面に返すときは、外のサービスのエラーの詳しい文（detail）を外し、記録（ログ）にだけ残す（2026-11-27 セキュリティの点検） */
+function publicBody(body: unknown): unknown {
+  if (body && typeof body === 'object' && 'detail' in body) {
+    const { detail, ...rest } = body as Record<string, unknown>;
+    console.error('detail', String(detail).slice(0, 500));
+    return rest;
+  }
+  return body;
+}
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+  new Response(JSON.stringify(publicBody(body)), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 const RELATION_TYPES = ['causal', 'similarity', 'historical', 'opposition', 'application', 'partWhole', 'other'];
 const STAR_KINDS = ['person', 'concept', 'event', 'place', 'work', 'term', 'other'];
@@ -101,29 +110,12 @@ Deno.serve(async (req) => {
   });
   const { data: userData, error: userError } = await sb.auth.getUser();
   if (userError || !userData.user) return json({ error: 'ログインしてください', code: 'login' }, 401);
-  // 今月の回数（無料は月20回・有料は月300回。数えるのは supabase/ai_quota.sql の関数）
-  const { data: quota, error: quotaError } = await sb.rpc('ai_quota');
-  if (quotaError || !quota?.ok) {
-    console.error('ai_quota', quotaError?.message);
-    return json({ error: '回数を数える準備ができていません（管理者が ai_quota.sql を実行する必要があります）', code: 'setup' }, 503);
-  }
-  if (quota.used >= quota.limit) {
-    return json(
-      {
-        error: quota.paid
-          ? `今月のAIで調べる回数（${quota.limit}回）を使い切りました。来月1日に戻ります。`
-          : `無料で調べられるのは月${quota.limit}回までです。有料プランにすると月300回まで調べられます（「その他」→「アカウントと同期」）。`,
-        code: 'quota',
-        quota,
-      },
-      429,
-    );
-  }
-
+  const userId = userData.user.id;
   const geminiKey = Deno.env.get('GEMINI_API_KEY');
   const claudeKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!geminiKey && !claudeKey) return json({ error: 'AIの鍵がまだ登録されていません', code: 'nokey' }, 503);
 
+  // 入力を先に確かめる（正しくない入力で回数を使わないように）
   let query = '';
   try {
     query = String((await req.json()).query ?? '').trim();
@@ -132,15 +124,60 @@ Deno.serve(async (req) => {
   }
   if (!query || query.length > 100) return json({ error: '調べる言葉を1〜100文字で入れてください', code: 'input' }, 400);
 
+  // 今月の回数（無料は月20回・有料は月300回。数えるのは supabase/ai_quota.sql の関数）。
+  // AIを呼ぶ前に1回分を数える（同時にたくさん送っても上限を超えないように。2026-11-27 セキュリティの点検）。
+  // ai_reserve がまだ作られていなければ、以前のやり方（確かめてから、結果が出たら数える）で動く
+  const quotaMessage = (q: { paid?: boolean; limit?: number }) =>
+    q.paid
+      ? `今月のAIで調べる回数（${q.limit}回）を使い切りました。来月1日に戻ります。`
+      : `無料で調べられるのは月${q.limit}回までです。有料プランにすると月300回まで調べられます（「その他」→「アカウントと同期」）。`;
+  let reserved: { month: string; used: number; limit: number; paid: boolean } | null = null;
+  const { data: rsv, error: rsvError } = await sb.rpc('ai_reserve');
+  if (!rsvError) {
+    if (!rsv?.ok) {
+      if (rsv?.reason === 'quota') return json({ error: quotaMessage(rsv), code: 'quota', quota: { ok: true, used: rsv.used, limit: rsv.limit, paid: rsv.paid } }, 429);
+      return json({ error: 'ログインしてください', code: 'login' }, 401);
+    }
+    reserved = { month: rsv.month, used: rsv.used, limit: rsv.limit, paid: rsv.paid };
+  } else {
+    console.error('ai_reserve（以前のやり方で数えます）', rsvError.message);
+    const { data: quota, error: quotaError } = await sb.rpc('ai_quota');
+    if (quotaError || !quota?.ok) {
+      console.error('ai_quota', quotaError?.message);
+      return json({ error: '回数を数える準備ができていません（管理者が ai_quota.sql を実行する必要があります）', code: 'setup' }, 503);
+    }
+    if (quota.used >= quota.limit) return json({ error: quotaMessage(quota), code: 'quota', quota }, 429);
+  }
+  // AIが失敗したら、先に数えた1回分を取り消す（取り消しは管理用の役割だけができる）
+  const release = async () => {
+    if (!reserved) return;
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!key) return console.error('ai_release：管理用の鍵がありません');
+    const admin = createClient(url, key, { auth: { persistSession: false } });
+    const { error } = await admin.rpc('ai_release', { uid: userId, m: reserved.month });
+    if (error) console.error('ai_release', error.message);
+  };
+
   const started = Date.now();
   const work = (geminiKey ? askGemini(query, geminiKey) : askClaude(query, claudeKey!))
     .then(async (r) => {
       // 結果が出たときだけ1回と数える（AIが失敗したときは数えない）
-      if (!r.ok) return r;
+      if (!r.ok) {
+        await release();
+        return r;
+      }
       const body = await r.json();
-      if (!body?.result) return json(body, r.status);
+      if (!body?.result) {
+        await release();
+        return json(body, r.status);
+      }
+      if (reserved) return json({ ...body, quota: { ok: true, used: reserved.used, limit: reserved.limit, paid: reserved.paid } }, r.status);
       const { data: after } = await sb.rpc('ai_consume');
       return json({ ...body, quota: after ?? null }, r.status);
+    })
+    .catch(async (e) => {
+      await release();
+      throw e;
     })
     .finally(() => console.log('ai-search 所要', Math.round((Date.now() - started) / 1000), '秒'));
   return keepAlive(work);
@@ -176,7 +213,7 @@ function keepAlive(work: Promise<Response>): Response {
       }
       clearInterval(timer);
       try {
-        controller.enqueue(enc.encode(JSON.stringify(out)));
+        controller.enqueue(enc.encode(JSON.stringify(publicBody(out))));
         controller.close();
       } catch {
         /* 相手が切ったあとは何もしない */

@@ -1,4 +1,5 @@
 // Knowledge Chain の画面：ステージ選択 → 探索 → クリア（解説・全体マップ）
+import { safeUrl } from '../lib/util';
 import { useMemo, useState } from 'react';
 import { buildAdjacency, moveTo, shortestPaths, startPlay, validateStage, type PlayState } from './engine';
 import { network1, stages1 } from './data/network1';
@@ -166,7 +167,7 @@ function EdgeReason({ edge }: { edge: ChainEdge }) {
     <>
       <span className="chain-type">{edge.type}</span> {edge.reason}
       <span className="chain-src">
-        {edge.sources.map((s) => <a key={s.url} href={s.url} target="_blank" rel="noreferrer">出典：{s.title}</a>)}
+        {edge.sources.map((s) => <a key={s.url} href={safeUrl(s.url)} target="_blank" rel="noreferrer">出典：{s.title}</a>)}
       </span>
     </>
   );

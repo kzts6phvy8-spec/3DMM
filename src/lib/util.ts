@@ -39,3 +39,17 @@ export function formatDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString('ja-JP', { dateStyle: 'medium', timeStyle: 'short' });
 }
+
+/**
+ * 外へのリンクとして開いてよいURLか（http・https だけ）。開いてよければそのURL、だめなら undefined。
+ * 出典のURLは手入力・AIの結果・バックアップから入るので、「javascript:」などは開かない（2026-11-27 セキュリティの点検）
+ */
+export function safeUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : undefined;
+  } catch {
+    return undefined;
+  }
+}

@@ -220,7 +220,8 @@ export async function startCheckout(interval: 'month' | 'year'): Promise<string 
   track('checkout_started', { interval });
   if (!session) return 'ログインしてください';
   const r = await callBilling({ action: 'checkout', interval });
-  if (r.url) {
+  // 移る先は Stripe の画面だけ（2026-11-27 セキュリティの点検）
+  if (r.url && /^https:\/\/(checkout|billing)\.stripe\.com\//.test(r.url)) {
     location.href = r.url;
     return null;
   }
@@ -231,7 +232,8 @@ export async function startCheckout(interval: 'month' | 'year'): Promise<string 
 export async function openBillingPortal(): Promise<string | null> {
   if (!session) return 'ログインしてください';
   const r = await callBilling({ action: 'portal' });
-  if (r.url) {
+  // 移る先は Stripe の画面だけ（2026-11-27 セキュリティの点検）
+  if (r.url && /^https:\/\/(checkout|billing)\.stripe\.com\//.test(r.url)) {
     location.href = r.url;
     return null;
   }
