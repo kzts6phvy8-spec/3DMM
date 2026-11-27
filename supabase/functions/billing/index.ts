@@ -73,14 +73,14 @@ Deno.serve(async (req) => {
     if (profile?.stripe_customer_id) params.customer = profile.stripe_customer_id;
     else if (user.email) params.customer_email = user.email;
     const r = await stripe(stripeKey, 'checkout/sessions', params);
-    if (!r.ok) return json({ error: '支払い画面を作れませんでした', code: 'api', detail: r.error }, 502);
+    if (!r.ok) return json({ error: '支払い画面を作れませんでした', code: 'api' }, 502);
     return json({ url: r.data.url });
   }
 
   if (body.action === 'portal') {
     if (!profile?.stripe_customer_id) return json({ error: 'Stripeでのお支払いの記録がありません', code: 'nocustomer' }, 404);
     const r = await stripe(stripeKey, 'billing_portal/sessions', { customer: profile.stripe_customer_id, return_url: back('portal'), locale: 'ja' });
-    if (!r.ok) return json({ error: 'お支払いの管理画面を開けませんでした', code: 'api', detail: r.error }, 502);
+    if (!r.ok) return json({ error: 'お支払いの管理画面を開けませんでした', code: 'api' }, 502);
     return json({ url: r.data.url });
   }
 

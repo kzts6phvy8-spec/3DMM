@@ -108,3 +108,8 @@ create unique index if not exists profiles_stripe_customer_id_key on public.prof
 -- 支払いの関数（billing）が使う「管理用の役割」（service_role）に、profiles を読み書きする許可を付ける
 -- （新しい Supabase では、表を作っても service_role に自動で許可が付かないことがあるため）
 grant select, update on public.profiles to service_role;
+
+-- ===== 同期データの大きさの上限（2026-11-27 セキュリティの点検で追加） =====
+-- 今のデータは圧縮して約5MB。余裕をもって50MB（文字数）までにする（それより大きいと保存を断る）
+alter table public.cosmos_sync drop constraint if exists cosmos_sync_data_size;
+alter table public.cosmos_sync add constraint cosmos_sync_data_size check (length(data) <= 50000000);

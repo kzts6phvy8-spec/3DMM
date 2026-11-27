@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
 import { RELATION_TYPES, STAR_KINDS, type KnowledgeNode, type RelationType, type Statement } from '../types';
 import { pairKey, useLinkTypes } from '../lib/linkTypes';
-import { RELATION_COLORS, categoryColor, formatDate } from '../lib/util';
+import { RELATION_COLORS, categoryColor, formatDate, safeUrl } from '../lib/util';
 import {
   displayName,
   backlinksOf,
@@ -273,8 +273,8 @@ function StatementItem({
                   if (!src) return null;
                   return (
                     <li key={id}>
-                      {src.url ? (
-                        <a href={src.url} target="_blank" rel="noreferrer">{src.title}</a>
+                      {safeUrl(src.url) ? (
+                        <a href={safeUrl(src.url)} target="_blank" rel="noreferrer">{src.title}</a>
                       ) : (
                         <span>{src.title}</span>
                       )}
