@@ -13,6 +13,7 @@ import { displayName, mentionEdgesFor, type MentionEdge } from '../lib/knowledge
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
 import { neighborIds } from '../lib/neighbors';
 import { hiddenStarIds, isOwnStar } from '../lib/ownStars';
+import { pairKey, useLinkTypes } from '../lib/linkTypes';
 
 function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
   const geometry = useMemo(() => {
@@ -55,7 +56,21 @@ function RelationLines() {
   // 「自分の星だけ表示」のときは、隠れている星を地図から外す（その星への線も描かない）
   const byId = useMemo(() => new Map(nodes.filter((n) => !hidden?.has(n.id)).map((n) => [n.id, n])), [nodes, hidden]);
   const allMentions = useMemo(() => mentionEdgesFor(statements, nodes), [statements, nodes]);
-  const mentions = useMemo(() => (hidden ? allMentions.filter((m) => byId.has(m.a) && byId.has(m.b)) : allMentions), [allMentions, hidden, byId]);
+  // 線の絞り込み：言及の線は AIの推測の種類で分ける（種類の分からない線は unknown）。違う意味のリンクの線は出さない
+  const lineFilter = useCosmos((s) => s.lineFilter);
+  const linkTypes = useLinkTypes(lineFilter !== null);
+  const mentions = useMemo(() => {
+    let out = hidden ? allMentions.filter((m) => byId.has(m.a) && byId.has(m.b)) : allMentions;
+    if (lineFilter && linkTypes) {
+      const want = new Set(lineFilter);
+      out = out.filter((m) => {
+        const k = pairKey(m.a, m.b);
+        if (linkTypes.mislinks.has(k)) return false;
+        return want.has(linkTypes.types.get(k) ?? 'unknown');
+      });
+    }
+    return out;
+  }, [allMentions, hidden, byId, lineFilter, linkTypes]);
   // 「広げる」で生まれた、まだ知らない星と、もとの星を結ぶ点線
   const seedEdges = useMemo<MentionEdge[]>(
     () =>
@@ -88,6 +103,7 @@ function RelationLines() {
           })}
       {/* 意味のつながり：自分で結んだ明るい線（理由が意見なら点線） */}
       {relations.map((r) => {
+        if (lineFilter && !lineFilter.includes(r.relationType)) return null;
         const a = byId.get(r.sourceNodeId);
         const b = byId.get(r.targetNodeId);
         if (!a || !b) return null;

@@ -16,6 +16,7 @@ import { fixMemoData, mergeDataset, removeStarter } from '../data/mergeDataset';
 import { applyCorrections, type Corrections } from '../data/applyCorrections';
 import { fixKanaLinksInData } from '../lib/kanaLinks';
 import { applyRefresh } from '../data/applyRefresh';
+import type { LineKind } from '../lib/linkTypes';
 import { REFRESH_VERSIONS, loadRefresh, refreshFlag } from '../data/refresh';
 import { newId, nowIso } from '../lib/util';
 import { addView, mergeEngagement, type EngagementMap } from '../lib/engagement';
@@ -70,6 +71,9 @@ interface CosmosState extends Data {
   /** 宇宙とリストに、自分の星だけを出す（初期セットの星は隠れるだけで消えない）。開き直すと元に戻る */
   ownOnly: boolean;
   setOwnOnly(v: boolean): void;
+  /** 宇宙に出す線の種類（null ならすべて）。言及の線は AIの推測の種類で分ける。開き直すと元に戻る */
+  lineFilter: LineKind[] | null;
+  setLineFilter(v: LineKind[] | null): void;
   /** 長押しで動かしている星 */
   draggingId: string | null;
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
@@ -217,6 +221,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
     panel: null,
     labelDensity: loadDensity(),
     ownOnly: false,
+    lineFilter: null,
     draggingId: null,
     engagement: {},
     activityDays: [],
@@ -405,6 +410,10 @@ export const useCosmos = create<CosmosState>((set, get) => {
 
     setOwnOnly(v) {
       set({ ownOnly: v });
+    },
+
+    setLineFilter(v) {
+      set({ lineFilter: v });
     },
 
     setLabelDensity(v) {

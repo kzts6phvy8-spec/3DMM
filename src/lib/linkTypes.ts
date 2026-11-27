@@ -47,14 +47,17 @@ function load() {
     });
 }
 
-/** 言及の線の種類（読み込み中は null） */
-export function useLinkTypes(): LinkTypes | null {
+/** 言及の線の種類（読み込み中は null）。on が false のあいだは読み込まない（起動を軽くするため） */
+export function useLinkTypes(on = true): LinkTypes | null {
   return useSyncExternalStore(
     (f) => {
       listeners.add(f);
-      load();
+      if (on) load();
       return () => listeners.delete(f);
     },
-    () => data,
+    () => (on ? data : null),
   );
 }
+
+/** 線の絞り込みで使う種類。種類の分からない線（自分で書いた記述のリンクなど）は 'unknown' */
+export type LineKind = RelationType | 'unknown';
