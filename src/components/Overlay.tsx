@@ -13,11 +13,23 @@ export function OwnOnlyNotice() {
   const ownOnly = useCosmos((s) => s.ownOnly);
   const setOwnOnly = useCosmos((s) => s.setOwnOnly);
   const count = useCosmos((s) => (s.ownOnly ? s.nodes.filter(isOwnStar).length : 0));
-  if (!ownOnly) return null;
+  const lineFilter = useCosmos((s) => s.lineFilter);
+  const setLineFilter = useCosmos((s) => s.setLineFilter);
+  if (!ownOnly && !lineFilter) return null;
   return (
-    <div className="own-only-notice" role="status">
-      <span>自分の星だけ表示中（{count}個）</span>
-      <button className="small-btn" onClick={() => setOwnOnly(false)}>すべて表示</button>
+    <div className="notice-stack">
+      {ownOnly && (
+        <div className="own-only-notice" role="status">
+          <span>自分の星だけ表示中（{count}個）</span>
+          <button className="small-btn" onClick={() => setOwnOnly(false)}>すべて表示</button>
+        </div>
+      )}
+      {lineFilter && (
+        <div className="own-only-notice" role="status">
+          <span>線を種類で絞り込み中</span>
+          <button className="small-btn" onClick={() => setLineFilter(null)}>すべての線</button>
+        </div>
+      )}
     </div>
   );
 }

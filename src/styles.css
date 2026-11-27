@@ -453,9 +453,12 @@ button.danger { color: var(--danger); }
 
 /* ---- 自分の星だけ表示（2026-11-26） ---- */
 .own-only-row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 12px; }
-.own-only-notice {
+.notice-stack {
   position: absolute; z-index: 40; left: 50%; transform: translateX(-50%);
   top: calc(var(--safe-top) + 72px);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.own-only-notice {
   display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px;
   background: var(--panel); border: 1px solid var(--accent); border-radius: 999px;
   font-size: 13px; white-space: nowrap; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -465,3 +468,5 @@ button.danger { color: var(--danger); }
 .link-guess { display: flex; align-items: center; gap: 6px; }
 .link-guess .related-main { flex: 1; min-width: 0; }
 .small-select { min-height: 36px; font-size: 13px; background: var(--panel); color: inherit; border: 1px solid var(--panel-border); border-radius: 10px; padding: 0 6px; }
+
+.line-swatch { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }

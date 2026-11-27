@@ -5,8 +5,9 @@ import { dropCheckFields } from '../storage/repository';
 import { sanitizeEngagement, type EngagementMap } from '../lib/engagement';
 import { sanitizeDays } from '../lib/streak';
 import { SyncSection } from './SyncSection';
-import { STAR_KINDS, type CosmosData, type KnowledgeNode, type StarKind } from '../types';
-import { categoryColor } from '../lib/util';
+import { RELATION_TYPES, STAR_KINDS, type CosmosData, type KnowledgeNode, type RelationType, type StarKind } from '../types';
+import { RELATION_COLORS, categoryColor } from '../lib/util';
+import type { LineKind } from '../lib/linkTypes';
 import { displayName, parseLinkIds } from '../lib/knowledge';
 import { normalize, searchIndex } from '../lib/search';
 import { AiSearchButton } from './AiSearchButton';
@@ -298,6 +299,44 @@ export function ListPanel() {
   );
 }
 
+// ---------------- 線の絞り込み ----------------
+
+const LINE_KINDS: { key: LineKind; label: string; color: string }[] = [
+  ...(Object.keys(RELATION_TYPES) as RelationType[]).map((k) => ({ key: k as LineKind, label: RELATION_TYPES[k], color: RELATION_COLORS[k] })),
+  { key: 'unknown', label: '種類が分からない線', color: '#c9d6ff' },
+];
+
+/** 宇宙に出す線を種類で絞り込む（言及の線は AIの推測の種類。開き直すと元に戻る） */
+function LineFilterField() {
+  const lineFilter = useCosmos((s) => s.lineFilter);
+  const setLineFilter = useCosmos((s) => s.setLineFilter);
+  const on = (k: LineKind) => !lineFilter || lineFilter.includes(k);
+  const toggle = (k: LineKind) => {
+    const cur = lineFilter ?? LINE_KINDS.map((x) => x.key);
+    const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+    setLineFilter(next.length === LINE_KINDS.length ? null : next);
+  };
+  return (
+    <div className="field">
+      <span className="muted small">宇宙に出す線の種類（記述のリンクからできた線は、AIが推測した種類で分けます）</span>
+      <div className="chips">
+        {LINE_KINDS.map((k) => (
+          <button key={k.key} className={on(k.key) ? 'chip small active' : 'chip small'} aria-pressed={on(k.key)} onClick={() => toggle(k.key)}>
+            <span className="line-swatch" style={{ background: k.color }} />
+            {k.label}
+          </button>
+        ))}
+      </div>
+      {lineFilter && (
+        <div className="chips">
+          <button className="small-btn" onClick={() => setLineFilter(null)}>すべての線を出す</button>
+          <button className="small-btn ghost" onClick={() => setLineFilter([])}>すべて消す</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------- その他 ----------------
 
 function exportFileName() {
@@ -440,6 +479,8 @@ export function MorePanel() {
           ))}
         </div>
       </div>
+
+      <LineFilterField />
 
       <h3>この宇宙について</h3>
       <dl className="meta">
