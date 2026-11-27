@@ -15,7 +15,6 @@ export interface Corrections {
 
 /** リンクの中身を無視した形（[[名前]] と [[@ID]] を同じ印にする）。リンク以外の文字が全く同じかを比べるため */
 const shape = (text: string) => text.replace(/\[\[[^\]]*\]\]/g, '§');
-const isStarter = (st: Statement) => st.id.startsWith('starter-');
 const linksOf = (text: string) => [...text.matchAll(/\[\[([^\]]*)\]\]/g)].map((m) => m[1]);
 
 export function applyCorrections(data: Data, corrections: Corrections): { data: Data; changed: number } {
@@ -23,50 +22,52 @@ export function applyCorrections(data: Data, corrections: Corrections): { data: 
   for (const n of data.nodes) {
     for (const name of [displayName(n), n.title]) if (!nameToId.has(name)) nameToId.set(name, n.id);
   }
-  // 星ごとの記述（並び順どおり）と、形から記述を引く表
-  const byStar = new Map<string, Statement[]>();
-  for (const st of data.statements) {
-    if (!byStar.has(st.starId)) byStar.set(st.starId, []);
-    byStar.get(st.starId)!.push(st);
-  }
-  for (const list of byStar.values()) list.sort((a, b) => a.order - b.order);
-  const byShape = new Map<string, Statement[]>();
-  for (const st of data.statements) {
-    if (!isStarter(st)) continue;
-    const k = shape(st.text);
-    if (!byShape.has(k)) byShape.set(k, []);
-    byShape.get(k)!.push(st);
-  }
-
   const replaced = new Map<string, string>(); // 記述ID → 新しい文
   const removed = new Set<string>();
   const now = new Date().toISOString();
 
+  // 初期セットのキー → その星の、初期セットから入った記述（並び順どおり）。直しは一覧に書かれた星の文にだけ当てる
+  // （「首都は〇〇。」のような短い文は、ほかの星にも同じ形がある。2026-11-27）
+  const byKey = new Map<string, Statement[]>();
+  for (const st of data.statements) {
+    const m = /^starter-(.+)-st\d+$/.exec(st.id);
+    if (!m) continue;
+    if (!byKey.has(m[1])) byKey.set(m[1], []);
+    byKey.get(m[1])!.push(st);
+  }
+  for (const list of byKey.values()) list.sort((a, b) => a.order - b.order);
+  // 同じ文に直しが何回分かあるときは、直したあとの文に次の直しを当てる
+  const textOf = (st: Statement) => replaced.get(st.id) ?? st.text;
+
   for (const c of corrections.statements) {
-    for (const first of byShape.get(shape(c.old[0])) ?? []) {
-      if (removed.has(first.id) || replaced.has(first.id)) continue;
-      const list = byStar.get(first.starId)!;
-      const at = list.indexOf(first);
+    const list = (byKey.get(c.star) ?? []).filter((st) => !removed.has(st.id));
+    for (let at = 0; at < list.length; at++) {
       const run = list.slice(at, at + c.old.length);
-      if (run.length !== c.old.length || run.some((st, i) => !isStarter(st) || shape(st.text) !== shape(c.old[i]))) continue;
+      if (run.length !== c.old.length || run.some((st, i) => shape(textOf(st)) !== shape(c.old[i]))) continue;
+      const first = run[0];
       // 直す前の文のリンク（名前）と、端末の文のリンク（ID）を順番に対応させる
       const map = new Map<string, string>();
       run.forEach((st, i) => {
-        const ids = linksOf(st.text);
+        const ids = linksOf(textOf(st));
         linksOf(c.old[i]).forEach((name, k) => {
           const id = ids[k]?.startsWith('@') ? ids[k].slice(1) : undefined;
           if (id && !map.has(name)) map.set(name, id);
         });
       });
-      run.slice(1).forEach((st) => removed.add(st.id));
+      run.slice(1).forEach((st) => {
+        removed.add(st.id);
+        replaced.delete(st.id);
+      });
       if (c.new === null) {
         removed.add(first.id);
+        replaced.delete(first.id);
       } else {
         const text = c.new.replace(/\[\[([^\]]*)\]\]/g, (_, name: string) => {
           const id = map.get(name) ?? nameToId.get(name);
           return id ? `[[@${id}]]` : name; // 見つからない名前は、星を新しく作らずにふつうの文字にする
         });
-        replaced.set(first.id, text);
+        if (text !== first.text) replaced.set(first.id, text);
+        else replaced.delete(first.id);
       }
       break;
     }
