@@ -244,7 +244,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
         const STARTER_FLAG = 'starter-v7-added';
         const SPREAD_FLAG = 'layout-spread-v1';
         // 初期セットの壊れた記述を直した版。直し方（corrections.json）を増やしたら上げる
-        const FIX_FLAG = 'corrections-v3';
+        const FIX_FLAG = 'corrections-v4';
         // ひらがなの名前へのリンクが言葉の途中に付いていたのを外した版（例：植[[えら]]れて）
         const KANA_FLAG = 'kana-links-v2';
         if (!data) {

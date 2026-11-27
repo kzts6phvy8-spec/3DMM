@@ -28,11 +28,14 @@ export function splitText(text: string): TextSegment[] {
   return out;
 }
 
-/** リンクを星の名前に置き換えた文字列（検索や一覧表示用） */
+/**
+ * リンクを星の名前に置き換えた文字列（検索や一覧表示用）。
+ * 文の中では補足を付けない（例：「データ（コンピュータ）通信」ではなく「データ通信」。2026-11-27）
+ */
 export function plainText(text: string, byId: Map<string, KnowledgeNode>): string {
   return text.replace(LINK_RE, (_, id: string) => {
     const n = byId.get(id);
-    return n ? displayName(n) : '（不明な星）';
+    return n ? n.title : '（不明な星）';
   });
 }
 
