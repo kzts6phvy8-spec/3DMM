@@ -61,3 +61,34 @@ export function useLinkTypes(on = true): LinkTypes | null {
 
 /** 線の絞り込みで使う種類。種類の分からない線（自分で書いた記述のリンクなど）は 'unknown' */
 export type LineKind = RelationType | 'unknown';
+
+/**
+ * 線を種類で絞り込んでいるときに、残った線につながっている星のID（絞り込んでいないときは null）。
+ * つながっていない星は宇宙で暗くし、名前も出さない（2026-11-28 あなたの指示）
+ */
+export function lineFilterStarIds(
+  lineFilter: LineKind[] | null,
+  linkTypes: LinkTypes | null,
+  mentions: { a: string; b: string }[],
+  relations: { sourceNodeId: string; targetNodeId: string; relationType: RelationType }[],
+): Set<string> | null {
+  if (!lineFilter || !linkTypes) return null;
+  const want = new Set(lineFilter);
+  const out = new Set<string>();
+  for (const m of mentions) {
+    const k = pairKey(m.a, m.b);
+    if (linkTypes.mislinks.has(k)) continue;
+    if (want.has(linkTypes.types.get(k) ?? 'unknown')) {
+      out.add(m.a);
+      out.add(m.b);
+    }
+  }
+  for (const r of relations) {
+    if (want.has(r.relationType)) {
+      out.add(r.sourceNodeId);
+      out.add(r.targetNodeId);
+    }
+  }
+  return out;
+}
+
