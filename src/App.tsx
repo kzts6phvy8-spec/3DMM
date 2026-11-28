@@ -12,7 +12,7 @@ import { WelcomeCard, isFirstVisit } from './components/WelcomeCard';
 import { SyncConflictDialog } from './components/SyncConflictDialog';
 import { startSync } from './sync/sync';
 import { BottomNav, ErrorToast, ModeBanner, NodeList, OwnOnlyNotice, SceneErrorBoundary, TopBar, UndoToast } from './components/Overlay';
-import { ListPanel, MorePanel, SearchPanel } from './components/Panels';
+import { ListPanel, MorePanel, SearchPanel, LinesPanel } from './components/Panels';
 import { ReportPanel } from './components/ReportPanel';
 import { QuizPanel } from './components/QuizPanel';
 import { ComparePanel, OverlayBanner } from './components/ComparePanel';
@@ -84,6 +84,7 @@ export default function App() {
       {panel === 'more' && <MorePanel />}
       {panel === 'report' && <ReportPanel />}
       {panel === 'quiz' && <QuizPanel />}
+      {panel === 'lines' && <LinesPanel />}
       {panel === 'compare' && (
         <ComparePanel
           onCreate={(title) => {

@@ -2,8 +2,7 @@
 // プレビュー（概要だけ）と、星のページ（記述・出典・つながりの全部）の2段階（構造の層 ③A）
 import { useMemo, useRef, useState } from 'react';
 import { useCosmos } from '../store/useCosmos';
-import { RELATION_TYPES, STAR_KINDS, type KnowledgeNode, type RelationType, type Statement } from '../types';
-import { pairKey, useLinkTypes } from '../lib/linkTypes';
+import { RELATION_TYPES, STAR_KINDS, type KnowledgeNode, type Statement } from '../types';
 import { RELATION_COLORS, categoryColor, formatDate, safeUrl } from '../lib/util';
 import {
   displayName,
@@ -43,70 +42,6 @@ function LinkedText({ text, byId }: { text: string; byId: Map<string, KnowledgeN
         );
       })}
     </>
-  );
-}
-
-/**
- * 言及の線の種類（AIの推測）。Claude Code が初期セットの文を読んで分類したもの。
- * 推測は自動で確定しない（基本方針5）。「確定」か、種類を選び直すと、意味のつながり（自分で結んだ線）になる
- */
-function LinkTypeGuesses({ star, own, backlinks, related, byId }: {
-  star: KnowledgeNode;
-  own: Statement[];
-  backlinks: Statement[];
-  related: { other?: KnowledgeNode }[];
-  byId: Map<string, KnowledgeNode>;
-}) {
-  const linkTypes = useLinkTypes();
-  const addRelation = useCosmos((s) => s.addRelation);
-  const navigate = useCosmos((s) => s.navigate);
-  const [limit, setLimit] = useState(8);
-  const guesses = useMemo(() => {
-    if (!linkTypes) return [];
-    // すでに意味のつながりがある星は出さない（確定済み）
-    const done = new Set(related.map((r) => r.other?.id).filter(Boolean));
-    const seen = new Set<string>([star.id]);
-    const out: { other: KnowledgeNode; type: RelationType }[] = [];
-    const add = (id: string) => {
-      if (seen.has(id) || done.has(id)) return;
-      seen.add(id);
-      const other = byId.get(id);
-      const type = linkTypes.types.get(pairKey(star.id, id));
-      if (other && type) out.push({ other, type });
-    };
-    for (const st of own) parseLinkIds(st.text).forEach(add);
-    for (const st of backlinks) add(st.starId);
-    return out;
-  }, [linkTypes, star.id, own, backlinks, related, byId]);
-  if (guesses.length === 0) return null;
-  return (
-    <section className="link-guesses" aria-label="つながりの種類（AIの推測）">
-      <h3>つながりの種類（AIの推測 {guesses.length}）</h3>
-      <p className="muted small">記述の中のリンクからできた線の種類を、AIが推測したものです。合っていれば「確定」、違えば種類を選び直すと、意味のつながりになります。</p>
-      <ul className="related">
-        {guesses.slice(0, limit).map(({ other, type }) => (
-          <li key={other.id} className="link-guess">
-            <button className="related-main" onClick={() => navigate(other.id)}>
-              <span className="badge" style={{ borderColor: RELATION_COLORS[type], color: RELATION_COLORS[type] }}>{RELATION_TYPES[type]}</span>
-              <span className="related-title">{displayName(other)}</span>
-            </button>
-            <button className="small-btn" onClick={() => addRelation(star.id, other.id, type, '')}>確定</button>
-            <select
-              className="small-select"
-              aria-label={`「${displayName(other)}」とのつながりの種類を選び直す`}
-              value=""
-              onChange={(e) => e.target.value && addRelation(star.id, other.id, e.target.value as RelationType, '')}
-            >
-              <option value="">変える</option>
-              {(Object.keys(RELATION_TYPES) as RelationType[]).map((k) => (
-                <option key={k} value={k}>{RELATION_TYPES[k]}</option>
-              ))}
-            </select>
-          </li>
-        ))}
-      </ul>
-      {guesses.length > limit && <button className="small-btn ghost" onClick={() => setLimit(limit + 8)}>ほか{guesses.length - limit}個</button>}
-    </section>
   );
 }
 
@@ -597,7 +532,6 @@ export function NodeSheet({
             ))}
           </ul>
 
-          <LinkTypeGuesses key={`lt-${node.id}`} star={node} own={own} backlinks={backlinks} related={related} byId={byId} />
           <SuggestionList key={node.id} star={node} />
           <SeedButton key={`seed-${node.id}`} star={node} />
           <AiSearchButton key={`ai-${node.id}`} query={displayName(node)} targetId={node.id} />

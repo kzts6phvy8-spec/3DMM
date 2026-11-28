@@ -306,6 +306,15 @@ const LINE_KINDS: { key: LineKind; label: string; color: string }[] = [
   { key: 'unknown', label: '種類が分からない線', color: '#c9d6ff' },
 ];
 
+/** つながりの種類で、宇宙に出す線を絞り込む（画面の上の「線の種類」から開く。2026-11-28 あなたの指示） */
+export function LinesPanel() {
+  return (
+    <PanelFrame title="つながりで絞り込む">
+      <LineFilterField />
+    </PanelFrame>
+  );
+}
+
 /** 宇宙に出す線を種類で絞り込む（言及の線は AIの推測の種類。開き直すと元に戻る） */
 function LineFilterField() {
   const lineFilter = useCosmos((s) => s.lineFilter);
@@ -318,7 +327,7 @@ function LineFilterField() {
   };
   return (
     <div className="field">
-      <span className="muted small">宇宙に出す線の種類（記述のリンクからできた線は、AIが推測した種類で分けます）</span>
+      <span className="muted small">宇宙に出す線の種類を選びます。記述のリンクからできた線は、AIが推測した種類で分けています。</span>
       <div className="chips">
         {LINE_KINDS.map((k) => (
           <button key={k.key} className={on(k.key) ? 'chip small active' : 'chip small'} aria-pressed={on(k.key)} onClick={() => toggle(k.key)}>
@@ -479,8 +488,6 @@ export function MorePanel() {
           ))}
         </div>
       </div>
-
-      <LineFilterField />
 
       <h3>この宇宙について</h3>
       <dl className="meta">

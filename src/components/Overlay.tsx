@@ -39,6 +39,7 @@ export function TopBar({ onAdd }: { onAdd: () => void }) {
   const relCount = useCosmos((s) => s.relations.length);
   const unknownCount = useCosmos((s) => s.nodes.filter((n) => n.status === 'unknown').length);
   const openPanel = useCosmos((s) => s.openPanel);
+  const lineFiltering = useCosmos((s) => s.lineFilter !== null);
   const [menu, setMenu] = useState(false);
   return (
     <header className="topbar">
@@ -46,6 +47,10 @@ export function TopBar({ onAdd }: { onAdd: () => void }) {
         <h1>Knowledge Cosmos</h1>
         <p className="muted">星{nodeCount}・つながり{relCount}{unknownCount > 0 && `・未知${unknownCount}`}</p>
       </div>
+      {/* つながりの種類で線を絞り込む（宇宙全体を見ながら選べるように、上のバーに置く） */}
+      <button className={lineFiltering ? 'topbar-chip active' : 'topbar-chip'} onClick={() => openPanel('lines')} aria-label="つながりの種類で線を絞り込む">
+        {lineFiltering ? '線：絞り込み中' : '線の種類'}
+      </button>
       {LAYOUT === 'B' && (
         <div className="topbar-actions">
           <button className="icon-btn" aria-label="探す" onClick={() => openPanel('search')}>🔍</button>

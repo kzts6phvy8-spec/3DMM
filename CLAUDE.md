@@ -184,7 +184,7 @@ src/
                           有料プランの支払い（Stripe）も sync.ts（startCheckout・openBillingPortal）。関数は supabase/functions/billing、手順は docs/billing-setup.md
   lib/search.ts           検索（ひらがな／カタカナ等の違いを吸収）
   lib/ownStars.ts         「自分の星だけ表示」の決まり（自分の星＝登録済みで初期セット以外。開いている星は隠さない）。切り替えは useCosmos の ownOnly（保存しない。開き直すと元に戻る）
-  lib/linkTypes.ts        言及の線の種類（AIの推測）。データは data/linkTypes.json（星IDの組→種類の記号、違う意味のリンクの一覧）。Claude Code が初期セットの文を読んで分類する。星の画面で「確定」「変える」を押すと意味のつながりになる（自動では確定しない）
+  lib/linkTypes.ts        言及の線の種類（AIの推測）。データは data/linkTypes.json（星IDの組→種類の記号、違う意味のリンクの一覧）。Claude Code が初期セットの文を読んで分類した。使い道は、画面の上の「線の種類」から開く絞り込み（宇宙に出す線を種類で選ぶ。絞り込み中は種類の色で描く）だけ。星の画面には出さない（2026-11-28 あなたの指示）
   lib/searchHistory.ts    検索履歴（「探す」の結果から開いた星を10個まで。保存キー search-history-v1、端末の中だけ。バックアップ・同期には含めない）
   lib/warmup.ts           手が空いているときに、検索の索引などの重い下ごしらえを先に済ませる
   lib/labelRegistry.ts    星の名前ラベルの要素（決まった数を使い回す。星が多くても軽く）
