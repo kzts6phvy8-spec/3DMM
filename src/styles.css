@@ -470,3 +470,7 @@ button.danger { color: var(--danger); }
 .small-select { min-height: 36px; font-size: 13px; background: var(--panel); color: inherit; border: 1px solid var(--panel-border); border-radius: 10px; padding: 0 6px; }
 
 .line-swatch { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+/* 上のバーの「線の種類」（2026-11-28） */
+.topbar-chip { flex-shrink: 0; min-height: 36px; padding: 0 12px; font-size: 13px; border-radius: 999px; }
+.topbar-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(127, 184, 255, 0.15); }

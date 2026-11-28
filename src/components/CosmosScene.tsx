@@ -13,9 +13,9 @@ import { displayName, mentionEdgesFor, type MentionEdge } from '../lib/knowledge
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
 import { neighborIds } from '../lib/neighbors';
 import { hiddenStarIds, isOwnStar } from '../lib/ownStars';
-import { pairKey, useLinkTypes } from '../lib/linkTypes';
+import { pairKey, useLinkTypes, type LineKind } from '../lib/linkTypes';
 
-function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean }) {
+function MentionSegments({ edges, byId, dashed, dim, color = '#c9d6ff', boost = 1 }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean; color?: string; boost?: number }) {
   const geometry = useMemo(() => {
     const pts: number[] = [];
     for (const m of edges) {
@@ -37,9 +37,9 @@ function MentionSegments({ edges, byId, dashed, dim }: { edges: MentionEdge[]; b
   return (
     <lineSegments ref={ref} geometry={geometry}>
       {dashed ? (
-        <lineDashedMaterial color="#c9d6ff" transparent opacity={(dim ? 0.05 : 0.16) * fade} dashSize={0.25} gapSize={0.2} depthWrite={false} />
+        <lineDashedMaterial color={color} transparent opacity={Math.min(1, (dim ? 0.05 : 0.16) * fade * boost)} dashSize={0.25} gapSize={0.2} depthWrite={false} />
       ) : (
-        <lineBasicMaterial color="#c9d6ff" transparent opacity={(dim ? 0.05 : 0.18) * fade} depthWrite={false} />
+        <lineBasicMaterial color={color} transparent opacity={Math.min(1, (dim ? 0.05 : 0.18) * fade * boost)} depthWrite={false} />
       )}
     </lineSegments>
   );
@@ -82,13 +82,32 @@ function RelationLines() {
   // 線の一覧は、データが変わったときだけ作り直す（星を選ぶたびに3万本以上の線を作り直さないように）
   const factEdges = useMemo(() => mentions.filter((m) => m.kind === 'fact'), [mentions]);
   const opinionEdges = useMemo(() => [...mentions.filter((m) => m.kind === 'opinion'), ...seedEdges], [mentions, seedEdges]);
+  // 絞り込み中だけ、種類ごとに分ける（絞り込んでいないときは今までどおり1色）
+  const typedGroups = useMemo(() => {
+    if (!lineFilter || !linkTypes) return [];
+    const groups = new Map<LineKind, { fact: MentionEdge[]; opinion: MentionEdge[] }>();
+    for (const m of mentions) {
+      const t: LineKind = linkTypes.types.get(pairKey(m.a, m.b)) ?? 'unknown';
+      if (!groups.has(t)) groups.set(t, { fact: [], opinion: [] });
+      groups.get(t)![m.kind === 'opinion' ? 'opinion' : 'fact'].push(m);
+    }
+    return [...groups.entries()].map(([type, g]) => ({ type, ...g }));
+  }, [lineFilter, linkTypes, mentions]);
 
   return (
     <>
       {/* 言及のつながり：記述の中のリンクから自動でできる細い線（まとめて1回で描いて軽くする） */}
       {/* 星を開いている間は、ほかの星どうしの線を消して、開いた星の線だけを見せる */}
-      {!focusMode && <MentionSegments edges={factEdges} byId={byId} dashed={false} dim={!!selectedId} />}
-      {!focusMode && <MentionSegments edges={opinionEdges} byId={byId} dashed dim={!!selectedId} />}
+      {/* 線を種類で絞り込んでいる間は、種類ごとの色で少し明るく描く（どの線が残ったか見分けられるように） */}
+      {!focusMode &&
+        typedGroups.map(({ type, fact, opinion }) => (
+          <group key={type}>
+            <MentionSegments edges={fact} byId={byId} dashed={false} dim={!!selectedId} color={type === 'unknown' ? undefined : RELATION_COLORS[type]} boost={2.5} />
+            <MentionSegments edges={opinion} byId={byId} dashed dim={!!selectedId} color={type === 'unknown' ? undefined : RELATION_COLORS[type]} boost={2.5} />
+          </group>
+        ))}
+      {!focusMode && !typedGroups.length && <MentionSegments edges={factEdges} byId={byId} dashed={false} dim={!!selectedId} />}
+      {!focusMode && !typedGroups.length && <MentionSegments edges={opinionEdges} byId={byId} dashed dim={!!selectedId} />}
       {/* 選んだ星の言及のつながりだけ、太く明るく描く */}
       {selectedId &&
         mentions
