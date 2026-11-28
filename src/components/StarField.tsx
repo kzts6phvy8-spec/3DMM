@@ -66,6 +66,8 @@ export function StarField({ connected }: { connected: Set<string> }) {
   const ownOnly = useCosmos((s) => s.ownOnly);
   const openId = useCosmos((s) => s.selectedId);
   const hidden = useMemo(() => hiddenStarIds(nodes, ownOnly, openId), [nodes, ownOnly, openId]);
+  // 線を絞り込んでいる間は、残った線につながっていない星を暗くする
+  const lineLit = useCosmos((s) => s.lineLit);
 
   const geometry = useMemo(() => {
     const n = nodes.length;
@@ -83,6 +85,7 @@ export function StarField({ connected }: { connected: Set<string> }) {
       sz[i] = nodeRadius(node.status, node.importance) * (cls ? 1.3 : 1);
       // まだ知らない星・つながりのない星は淡く光らせる。重ねて表示しているときは、関係のない星を暗くする
       al[i] = overlay ? (cls ? 1 : 0.12) : unknown ? 0.4 : connected.has(node.id) ? 0.85 : 0.55;
+      if (lineLit && !lineLit.has(node.id)) al[i] = 0.05;
       if (hidden?.has(node.id)) {
         sz[i] = 0;
         al[i] = 0;
@@ -95,7 +98,7 @@ export function StarField({ connected }: { connected: Set<string> }) {
     g.setAttribute('alpha', new THREE.BufferAttribute(al, 1));
     g.computeBoundingSphere();
     return g;
-  }, [nodes, connected, overlay, hidden]);
+  }, [nodes, connected, overlay, hidden, lineLit]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   // 星を選んでいる間は、つながっている星だけを明るくし、ほかを暗くする（元の明るさは geometry に残す）

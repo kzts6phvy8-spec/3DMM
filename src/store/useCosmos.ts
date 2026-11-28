@@ -74,6 +74,8 @@ interface CosmosState extends Data {
   /** 宇宙に出す線の種類（null ならすべて）。言及の線は AIの推測の種類で分ける。開き直すと元に戻る */
   lineFilter: LineKind[] | null;
   setLineFilter(v: LineKind[] | null): void;
+  /** 線を絞り込んでいるときに、残った線につながっている星（宇宙で明るく見せる星）。絞り込んでいないときは null。宇宙の線を描く部品が計算して入れる */
+  lineLit: Set<string> | null;
   /** 長押しで動かしている星 */
   draggingId: string | null;
   /** 関わり方の記録（星を開いた回数など）。知識のデータとは別に保存する */
@@ -222,6 +224,7 @@ export const useCosmos = create<CosmosState>((set, get) => {
     labelDensity: loadDensity(),
     ownOnly: false,
     lineFilter: null,
+    lineLit: null,
     draggingId: null,
     engagement: {},
     activityDays: [],

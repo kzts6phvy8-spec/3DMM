@@ -13,7 +13,7 @@ import { displayName, mentionEdgesFor, type MentionEdge } from '../lib/knowledge
 import { SelectionMarkers, StarField, StarPicker } from './StarField';
 import { neighborIds } from '../lib/neighbors';
 import { hiddenStarIds, isOwnStar } from '../lib/ownStars';
-import { pairKey, useLinkTypes, type LineKind } from '../lib/linkTypes';
+import { lineFilterStarIds, pairKey, useLinkTypes, type LineKind } from '../lib/linkTypes';
 
 function MentionSegments({ edges, byId, dashed, dim, color = '#c9d6ff', boost = 1 }: { edges: MentionEdge[]; byId: Map<string, KnowledgeNode>; dashed: boolean; dim: boolean; color?: string; boost?: number }) {
   const geometry = useMemo(() => {
@@ -83,6 +83,11 @@ function RelationLines() {
   const factEdges = useMemo(() => mentions.filter((m) => m.kind === 'fact'), [mentions]);
   const opinionEdges = useMemo(() => [...mentions.filter((m) => m.kind === 'opinion'), ...seedEdges], [mentions, seedEdges]);
   // 絞り込み中だけ、種類ごとに分ける（絞り込んでいないときは今までどおり1色）
+  // 残った線につながっている星を、星の明るさと名前の表示に使えるよう、状態に入れる
+  useEffect(() => {
+    const lit = lineFilterStarIds(lineFilter, linkTypes, allMentions, relations);
+    useCosmos.setState({ lineLit: lit });
+  }, [lineFilter, linkTypes, allMentions, relations]);
   const typedGroups = useMemo(() => {
     if (!lineFilter || !linkTypes) return [];
     const groups = new Map<LineKind, { fact: MentionEdge[]; opinion: MentionEdge[] }>();
@@ -281,11 +286,12 @@ function LabelProjector() {
 
   const controls = useThree((st) => st.controls) as OrbitControlsImpl | null;
   // 前のコマと同じ見え方なら、ラベルの計算を省く（星が1万個あっても、止まっているときは軽く）
-  const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown }), []);
+  const last = useMemo(() => ({ key: '', nodes: null as unknown, near: null as unknown, lit: null as unknown }), []);
   useFrame(({ camera, size }) => {
-    const { nodes, labelDensity, connectFromId, mode, ownOnly } = useCosmos.getState();
+    const { nodes, labelDensity, connectFromId, mode, ownOnly, lineLit } = useCosmos.getState();
     const key = `${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements[0]}|${size.width}x${size.height}|${labelDensity}|${connectFromId}|${mode}|${ownOnly}`;
-    if (key === last.key && nodes === last.nodes && near === last.near) return;
+    if (key === last.key && nodes === last.nodes && near === last.near && lineLit === last.lit) return;
+    last.lit = lineLit;
     last.key = key;
     last.nodes = nodes;
     last.near = near;
@@ -299,6 +305,8 @@ function LabelProjector() {
     const hidden = hiddenStarIds(nodes, ownOnly, selectedId);
     for (const n of nodes) {
       if (hidden?.has(n.id)) continue;
+      // 線を絞り込んでいる間は、残った線につながっていない星の名前を出さない（開いている星とそのまわりは出す）
+      if (lineLit && !lineLit.has(n.id) && n.id !== selectedId && !near.has(n.id)) continue;
       const unknown = n.status === 'unknown';
       const r = unknown ? starRadius(1) * 0.75 : starRadius(n.importance);
       v.set(n.position[0], n.position[1] - r - 0.35, n.position[2]);
